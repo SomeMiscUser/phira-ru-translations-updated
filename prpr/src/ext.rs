@@ -403,7 +403,6 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
     #[cfg(not(target_os = "android"))]
     {
         use sasa::backend::cpal::*;
-        dbg!(config.preferred_sample_rate);
         AudioManager::new(CpalBackend::new(CpalSettings {
             preferred_sample_rate: config.preferred_sample_rate,
             buffer_size: config.audio_buffer_size,
