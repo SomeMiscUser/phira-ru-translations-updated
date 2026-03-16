@@ -681,7 +681,7 @@ impl Page for FavoritesPage {
                         request_input("fav_description", InputBox::new().default_text(&col.description).mode(InputMode::Multiline));
                     }
                     "set-cover" => {
-                        if col.id.is_none() {
+                        if col.charts.is_empty() {
                             show_message(tl!("no-charts")).error();
                         } else {
                             FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(Some(index)));
