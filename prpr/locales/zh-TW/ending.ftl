@@ -1,6 +1,7 @@
 
 retry = 重試
 proceed = 繼續
+detail = 詳細資訊
 
 new-best = 新紀錄
 max-combo = 最大連擊數
