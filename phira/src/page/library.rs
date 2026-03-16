@@ -387,7 +387,7 @@ impl LibraryPage {
 
     fn update_order_meta_menu_options(&mut self) {
         self.order_meta_menu.set_options(vec![
-            tl!("order-by", "order" => self.order_menu_options[self.current_order as usize].label()),
+            tl!("order-by", "order" => self.current_order.label()),
             if self.order_rev { tl!("order-desc") } else { tl!("order-asc") }.into(),
         ]);
     }
