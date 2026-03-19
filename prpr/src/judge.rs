@@ -78,20 +78,12 @@ fn get_uptime() -> f64 {
 
 #[cfg(target_os = "ios")]
 fn get_uptime() -> f64 {
-    use crate::objc::*;
-    unsafe {
-        let process_info: ObjcId = msg_send![class!(NSProcessInfo), processInfo];
-        msg_send![process_info, systemUptime]
-    }
+    objc2_foundation::NSProcessInfo::processInfo().systemUptime()
 }
 
 #[cfg(target_os = "windows")]
 fn get_uptime() -> f64 {
-    use std::time::SystemTime;
-    let start = SystemTime::UNIX_EPOCH;
-    let now = SystemTime::now();
-    let duration = now.duration_since(start).expect("Time went backwards");
-    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+    miniquad::native::windows::get_uptime()
 }
 
 pub struct FlickTracker {
@@ -159,7 +151,7 @@ pub enum Judgement {
     Miss,
 }
 
-#[cfg(any(not(closed), target_os = "windows", target_os = "linux"))]
+#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
     diffs: Vec<f32>,
@@ -168,9 +160,11 @@ pub(crate) struct JudgeInner {
     max_combo: u32,
     counts: [u32; 4],
     num_of_notes: u32,
+    early_kind: [u32; 4],
+    late_kind: [u32; 4],
 }
 
-#[cfg(any(not(closed), target_os = "windows", target_os = "linux"))]
+#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
 impl JudgeInner {
     pub fn new(num_of_notes: u32) -> Self {
         Self {
@@ -180,6 +174,8 @@ impl JudgeInner {
             max_combo: 0,
             counts: [0; 4],
             num_of_notes,
+            early_kind: [0; 4],
+            late_kind: [0; 4],
         }
     }
 
@@ -187,6 +183,11 @@ impl JudgeInner {
         use Judgement::*;
         if matches!(what, Judgement::Good) {
             self.diffs.push(diff);
+        }
+        if diff < 0. {
+            self.early_kind[what as usize] += 1;
+        } else if diff > 0. {
+            self.late_kind[what as usize] += 1;
         }
         self.counts[what as usize] += 1;
         match what {
@@ -207,6 +208,8 @@ impl JudgeInner {
         self.max_combo = 0;
         self.counts = [0; 4];
         self.diffs.clear();
+        self.early_kind = [0; 4];
+        self.late_kind = [0; 4];
     }
 
     pub fn accuracy(&self) -> f64 {
@@ -242,6 +245,8 @@ impl JudgeInner {
             early,
             late: self.diffs.len() as u32 - early,
             std: 0.,
+            early_kind: self.early_kind,
+            late_kind: self.late_kind,
         }
     }
 
@@ -255,9 +260,9 @@ impl JudgeInner {
 }
 
 #[rustfmt::skip]
-#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 pub mod inner;
-#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 use inner::*;
 
 type Judgements = Vec<(f32, u32, u32, Result<Judgement, bool>)>;
@@ -994,6 +999,8 @@ pub struct PlayResult {
     pub early: u32,
     pub late: u32,
     pub std: f32,
+    pub early_kind: [u32; 4],
+    pub late_kind: [u32; 4],
 }
 
 pub fn icon_index(score: u32, full_combo: bool) -> usize {

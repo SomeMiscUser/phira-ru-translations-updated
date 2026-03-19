@@ -11,6 +11,7 @@ use crate::{
 };
 use anyhow::Result;
 use bytesize::ByteSize;
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
@@ -190,7 +191,7 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
     ui.fill_path(&ir.rounded(0.02), (**icon, ir));
 
-    let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
+    let text = tl!("about-content", "version" => format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")));
     let (first, text) = text.split_once('\n').unwrap();
     let tr = ui
         .text(first)
@@ -271,7 +272,7 @@ struct GeneralList {
 
     lang_btn: ChooseButton,
 
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
@@ -305,7 +306,7 @@ impl GeneralList {
                         .unwrap_or_default(),
                 ),
 
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
@@ -363,7 +364,7 @@ impl GeneralList {
             return Ok(Some(false));
         }
 
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
         if self.fullscreen_btn.touch(touch, t) {
             config.fullscreen_mode ^= true;
 
@@ -391,7 +392,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.mp_addr_btn.touch(touch, t) {
-            request_input("mp_addr", &config.mp_address);
+            request_input("mp_addr", InputBox::new().default_text(&config.mp_address));
             return Ok(Some(true));
         }
         #[cfg(not(target_env = "ohos"))]
@@ -408,7 +409,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.anys_gateway_btn.touch(touch, t) {
-            request_input("anys_gateway", &data.anys_gateway);
+            request_input("anys_gateway", InputBox::new().default_text(&data.anys_gateway));
             return Ok(Some(true));
         }
         Ok(None)
@@ -474,7 +475,7 @@ impl GeneralList {
             self.lang_btn.render(ui, rr, t);
         }
 
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
         item! {
             render_title(ui, tl!("item-fullscreen"), None);
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
@@ -536,6 +537,8 @@ struct AudioList {
     cali_btn: DRectButton,
     #[cfg(not(target_os = "android"))]
     preferred_sample_rate_btn: DRectButton,
+    #[cfg(target_env = "ohos")]
+    audio_buffer_size_btn: DRectButton,
     cali_task: LocalTask<Result<OffsetPage>>,
     next_page: Option<NextPage>,
 }
@@ -550,6 +553,8 @@ impl AudioList {
             cali_btn: DRectButton::new(),
             #[cfg(not(target_os = "android"))]
             preferred_sample_rate_btn: DRectButton::new(),
+            #[cfg(target_env = "ohos")]
+            audio_buffer_size_btn: DRectButton::new(),
 
             cali_task: None,
             next_page: None,
@@ -586,10 +591,18 @@ impl AudioList {
         }
         #[cfg(not(target_os = "android"))]
         if self.preferred_sample_rate_btn.touch(touch, t) {
-            let options = [44100, 48000, 88200, 96000, 192000];
+            let options = [None, Some(44100), Some(48000), Some(88200), Some(96000), Some(192000)];
             let current = config.preferred_sample_rate;
             let selected = options.iter().position(|&r| r == current).unwrap_or(0);
             config.preferred_sample_rate = options[(selected + 1) % options.len()];
+            return Ok(Some(true));
+        }
+        #[cfg(target_env = "ohos")]
+        if self.audio_buffer_size_btn.touch(touch, t) {
+            let options = [128u32, 256u32, 512u32];
+            let current = config.audio_buffer_size.unwrap_or(256);
+            let selected = options.iter().position(|&r| r == current).unwrap_or(1);
+            config.audio_buffer_size = Some(options[(selected + 1) % options.len()]);
             return Ok(Some(true));
         }
         Ok(None)
@@ -647,7 +660,18 @@ impl AudioList {
         #[cfg(not(target_os = "android"))]
         item! {
             render_title(ui, tl!("item-preferred-sample-rate"), None);
-            self.preferred_sample_rate_btn.render_text(ui, rr, t, format!("{} Hz", config.preferred_sample_rate), 0.5, false);
+            let text = if let Some(rate) = config.preferred_sample_rate {
+                format!("{} Hz", rate)
+            } else {
+                tl!("preferred-sample-rate-default").to_string()
+            };
+            self.preferred_sample_rate_btn.render_text(ui, rr, t, text, 0.5, false);
+        }
+        #[cfg(target_env = "ohos")]
+        item! {
+            render_title(ui, tl!("item-audio-buffer-size"), None);
+            let buf_size = config.audio_buffer_size.unwrap_or(256);
+            self.audio_buffer_size_btn.render_text(ui, rr, t, format!("{}", buf_size), 0.5, false);
         }
         (w, h)
     }

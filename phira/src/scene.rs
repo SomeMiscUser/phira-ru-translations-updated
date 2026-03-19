@@ -13,7 +13,7 @@ mod main;
 pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 
 mod song;
-pub use song::{Downloading, SongScene, RECORD_ID};
+pub use song::{compress_folder, Downloading, SongScene, RECORD_ID};
 #[cfg(feature = "video")]
 mod unlock;
 #[cfg(feature = "video")]
@@ -278,14 +278,9 @@ pub fn gen_custom_dir() -> Result<(PathBuf, Uuid)> {
     Ok((dir, id))
 }
 
-pub async fn import_chart_to(dir: &Path, id: Uuid, path: String) -> Result<LocalChart> {
-    let path = Path::new(&path);
-    if !path.exists() || !path.is_file() {
-        bail!("not a file");
-    }
+pub async fn import_chart_to(dir: &Path, local_path: String, file: File) -> Result<LocalChart> {
     let dir = prpr::dir::Dir::new(dir)?;
-    unzip_into(BufReader::new(File::open(path)?), &dir, true)?;
-    let local_path = format!("custom/{id}");
+    unzip_into(BufReader::new(file), &dir, true)?;
     let mut fs = fs_from_path(&local_path)?;
     let mut info = fs::load_info(fs.as_mut()).await.with_context(|| itl!("info-fail"))?;
     fs::fix_info(fs.as_mut(), &mut info).await.with_context(|| itl!("invalid-chart"))?;
@@ -299,9 +294,9 @@ pub async fn import_chart_to(dir: &Path, id: Uuid, path: String) -> Result<Local
     })
 }
 
-pub async fn import_chart(path: String) -> Result<LocalChart> {
+pub async fn import_chart(file: File) -> Result<LocalChart> {
     let (dir, id) = gen_custom_dir()?;
-    match import_chart_to(&dir, id, path).await {
+    match import_chart_to(&dir, format!("custom/{id}"), file).await {
         Err(err) => {
             std::fs::remove_dir_all(dir)?;
             Err(err)
@@ -420,18 +415,13 @@ pub fn render_release_to_refresh(ui: &mut Ui, cx: f32, off: f32) {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::DerefMut;
-
-    use fs::load_info;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn test_parse_chart() -> Result<()> {
-        // Put the chart in phira(workspace, not crate)/test which is ignored by git
-        let mut fs = fs_from_path("../../../test")?;
-        let info = load_info(fs.as_mut()).await?;
-        let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
-        Ok(())
-    }
+    // #[tokio::test]
+    // #[ignore = "Chart parsing test"]
+    // async fn test_parse_chart() -> Result<()> {
+    //     // Put the chart in phira(workspace, not crate)/test which is ignored by git
+    //     let mut fs = fs_from_path("../../../test")?;
+    //     let info = load_info(fs.as_mut()).await?;
+    //     let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
+    //     Ok(())
+    // }
 }

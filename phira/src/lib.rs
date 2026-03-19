@@ -23,6 +23,7 @@ mod threed;
 mod uml;
 
 use anyhow::Result;
+use core::f64;
 use data::Data;
 use macroquad::prelude::*;
 use prpr::{
@@ -37,7 +38,10 @@ use prpr::{
 };
 use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
 use scene::MainScene;
-use std::sync::{mpsc, Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{mpsc, Mutex},
+};
 use tracing::{error, info};
 
 #[cfg(target_os = "android")]
@@ -141,6 +145,10 @@ mod dir {
         ensure("data/charts")
     }
 
+    pub fn collections() -> Result<String> {
+        ensure("data/collections")
+    }
+
     pub fn custom_charts() -> Result<String> {
         ensure("data/charts/custom")
     }
@@ -173,19 +181,11 @@ async fn the_main() -> Result<()> {
     let _guard = rt.enter();
 
     #[cfg(target_os = "ios")]
-    unsafe {
-        use prpr::objc::*;
-        #[allow(improper_ctypes)]
-        extern "C" {
-            pub fn NSSearchPathForDirectoriesInDomains(
-                directory: std::os::raw::c_ulong,
-                domain_mask: std::os::raw::c_ulong,
-                expand_tilde: bool,
-            ) -> *mut NSArray<*mut NSString>;
-        }
-        let directories = NSSearchPathForDirectoriesInDomains(5, 1, true);
-        let first: &mut NSString = msg_send![directories, firstObject];
-        let path = first.as_str().to_owned();
+    {
+        use objc2_foundation::{NSSearchPathDirectory, NSSearchPathDomainMask, NSSearchPathForDirectoriesInDomains};
+
+        let directories = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory::LibraryDirectory, NSSearchPathDomainMask::UserDomainMask, true);
+        let path = directories.firstObject().unwrap().to_string();
         *DATA_PATH.lock().unwrap() = Some(path);
         *CACHE_DIR.lock().unwrap() = Some("Caches".to_owned());
     }
@@ -198,6 +198,7 @@ async fn the_main() -> Result<()> {
     data.init().await?;
     set_data(data);
     sync_data();
+    save_data()?;
 
     let rx = {
         let (tx, rx) = mpsc::channel();
@@ -231,10 +232,24 @@ async fn the_main() -> Result<()> {
     let tm = TimeManager::default();
     let mut fps_time = -1;
 
+    const FPS_BUF_SIZE: usize = 60;
+    let mut fps_times = VecDeque::<f32>::with_capacity(FPS_BUF_SIZE);
+    let mut last_frame_start = f32::NAN;
+    let mut fps_time_sum = 0.;
+
     let mut exit_time = f64::INFINITY;
 
     'app: loop {
         let frame_start = tm.real_time();
+        if !last_frame_start.is_nan() {
+            if fps_times.len() == FPS_BUF_SIZE {
+                fps_time_sum -= fps_times.pop_front().unwrap();
+            }
+            let frame_time = frame_start as f32 - last_frame_start;
+            fps_times.push_back(frame_time);
+            fps_time_sum += frame_time;
+        }
+        last_frame_start = frame_start as f32;
         let res = || -> Result<()> {
             main.update()?;
             main.render(&mut painter)?;
@@ -300,7 +315,11 @@ async fn the_main() -> Result<()> {
         let fps_now = t as i32;
         if fps_now != fps_time {
             fps_time = fps_now;
-            info!("FPS {}", (1. / (t - frame_start)) as u32);
+            if fps_times.len() == FPS_BUF_SIZE {
+                let actual_fps = 1. / (fps_time_sum / FPS_BUF_SIZE as f32);
+                let current_fps = 1. / (t - frame_start);
+                info!("FPS {} (capped at {})", current_fps as u32, actual_fps as u32);
+            }
         }
 
         next_frame().await;
@@ -348,6 +367,14 @@ fn string_from_java(env: &mut JNIEnv, s: JString) -> String {
 
 #[cfg(target_os = "android")]
 #[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: JNIEnv, _: JClass) {
+    unsafe {
+        inputbox::backend::Android::initialize_raw(env.get_raw() as _).unwrap();
+    }
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: JNIEnv, _: JClass) {
     anti_addiction_action("leaveGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
@@ -372,13 +399,13 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: JNIEn
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(mut env: JNIEnv, _: *const JClass, path: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(mut env: JNIEnv, _: JClass, path: JString) {
     *DATA_PATH.lock().unwrap() = Some(string_from_java(&mut env, path));
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(mut env: JNIEnv, _: *const JClass, path: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(mut env: JNIEnv, _: JClass, path: JString) {
     let path = string_from_java(&mut env, path);
     std::env::set_var("TMPDIR", path.clone());
     *CACHE_DIR.lock().unwrap() = Some(path);
@@ -471,14 +498,7 @@ pub fn set_chosen_file(file: String) {
 
 #[cfg(target_env = "ohos")]
 #[napi]
-pub fn mark_import() {
+pub fn mark_auto_import() {
     use prpr::scene::CHOSEN_FILE;
-    CHOSEN_FILE.lock().unwrap().0 = Some("_import".to_owned());
-}
-
-#[cfg(target_env = "ohos")]
-#[napi]
-pub fn mark_import_respack() {
-    use prpr::scene::CHOSEN_FILE;
-    CHOSEN_FILE.lock().unwrap().0 = Some("_import_respack".to_owned());
+    CHOSEN_FILE.lock().unwrap().0 = Some("_import_auto".to_owned());
 }

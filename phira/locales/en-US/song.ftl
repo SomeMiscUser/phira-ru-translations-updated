@@ -46,6 +46,8 @@ edit-overwrite-failed = Failed to overwrite.
 edit-upload = Upload
 edit-update = Update
 
+warn = Warning
+cancel-not-saved = Chart hasn't been saved yet, would you like to exit now?
 upload-not-saved = Chart hasn't been saved yet, would you like to save it now?
 upload-login-first = Please login first.
 upload-builtin = Built-in charts cannot be uploaded.
@@ -84,6 +86,7 @@ reviewed = Reviewed
 unreviewed = Unreviewed
 
 review-approve = Approve
+review-approve-confirm = Approve this chart? This action cannot be undone.
 review-deny = Deny
 review-del = Delete Online
 review-approved = Approved
@@ -120,6 +123,7 @@ stabilize-requested = Stabilization request sent.
 stabilize-failed = Stabilization failed.
 stabilize-approve = Approve Special
 stabilize-approve-ranked = Approve Stable
+stabilize-approve-confirm = Approve stabilization for this chart? This action cannot be undone.
 stabilize-comment = Stable Comment
 stabilize-commented = Commented
 stabilize-deny = Deny Stable
@@ -129,8 +133,5 @@ stabilize-denied = Denied
 stabilize-denied-passed = Denied, the beatmap is rejected
 
 fav-added = Added to favorites
-fav-add-to = Add to...
-fav-select-folder = Select folder
-fav-default-folder = Default
 
 still-loading = Still loading...

@@ -23,6 +23,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
+use inputbox::InputBox;
 use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
 use sasa::{Music, MusicParams};
@@ -44,9 +45,9 @@ use tracing::{debug, warn};
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
 #[rustfmt::skip]
-#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 mod inner;
-#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
@@ -915,7 +916,7 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
+                    #[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {
@@ -1076,11 +1077,11 @@ impl Scene for GameScene {
                 ..touch.clone()
             };
             if self.exercise_btns.0.touch(&touch) {
-                request_input("exercise_start", &fmt_time(self.exercise_range.start));
+                request_input("exercise_start", InputBox::new().default_text(fmt_time(self.exercise_range.start)));
                 return Ok(true);
             }
             if self.exercise_btns.1.touch(&touch) {
-                request_input("exercise_end", &fmt_time(self.exercise_range.end));
+                request_input("exercise_end", InputBox::new().default_text(fmt_time(self.exercise_range.end)));
                 return Ok(true);
             }
         }

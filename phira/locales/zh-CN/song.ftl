@@ -46,6 +46,8 @@ edit-overwrite-failed = 覆盖失败
 edit-upload = 上传
 edit-update = 更新
 
+warn = 警告
+cancel-not-saved = 你还没有保存信息，确定要退出吗？
 upload-not-saved = 你还没有保存谱面，确定要继续上传吗？
 upload-login-first = 请先登录
 upload-builtin = 不能上传内置谱面
@@ -82,6 +84,7 @@ reviewed = 已审核
 unreviewed = 未审核
 
 review-approve = 通过
+review-approve-confirm = 确定通过该谱面吗？该操作无法撤销。
 review-deny = 拒绝
 review-del = 删除在线
 review-approved = 已通过
@@ -118,6 +121,7 @@ stabilize-requested = 申请 stable 成功
 stabilize-failed = 申请 stable 失败
 stabilize-approve = 通过 special
 stabilize-approve-ranked = 通过 stable
+stabilize-approve-confirm = 确定通过该谱面的评议吗？该操作无法撤销。
 stabilize-comment = Stable 留言
 stabilize-commented = 留言成功
 stabilize-deny = 拒绝 stable
@@ -127,8 +131,5 @@ stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
 
 fav-added = 已收藏
-fav-add-to = 收藏到…
-fav-select-folder = 选择收藏夹
-fav-default-folder = 默认收藏夹
 
 still-loading = 仍在加载中…
