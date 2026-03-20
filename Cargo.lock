@@ -2126,7 +2126,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.3.25"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=df81b76#df81b76428bed385698619390187ed23c349fffb"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=9ad9235#9ad9235e405634c0c1f4d2eb73655e7d073120bf"
 dependencies = [
  "bumpalo",
  "fontdue",
@@ -2140,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.7"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=df81b76#df81b76428bed385698619390187ed23c349fffb"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=9ad9235#9ad9235e405634c0c1f4d2eb73655e7d073120bf"
 
 [[package]]
 name = "malloc_buf"

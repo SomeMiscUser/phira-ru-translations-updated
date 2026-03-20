@@ -93,7 +93,7 @@ pub struct ResPackInfo {
 impl ResPackInfo {
     pub fn fx_perfect(&self) -> Color {
         if self.hit_fx_tinted {
-            Color::from_hex(self.color_perfect)
+            Color::from_hex_argb(self.color_perfect)
         } else {
             WHITE
         }
@@ -101,7 +101,7 @@ impl ResPackInfo {
 
     pub fn fx_good(&self) -> Color {
         if self.hit_fx_tinted {
-            Color::from_hex(self.color_good)
+            Color::from_hex_argb(self.color_good)
         } else {
             WHITE
         }
