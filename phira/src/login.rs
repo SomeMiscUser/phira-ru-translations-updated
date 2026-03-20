@@ -1,11 +1,11 @@
 prpr_l10n::tl_file!("login");
 
 use crate::{
-    client::{API_URL, Client, LoginParams, User, UserManager},
+    client::{Client, LoginParams, User, UserManager, API_URL},
     get_data_mut,
     page::Fader,
     save_data,
-    scene::{JUST_ACCEPTED_TOS, check_read_tos_and_policy, dispatch_tos_task},
+    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
 use inputbox::{InputBox, InputMode};
@@ -13,10 +13,10 @@ use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
-    ext::{RectExt, open_url, semi_black, semi_white},
+    ext::{open_url, semi_black, semi_white, RectExt},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Dialog, RectButton, Ui, button_hit},
+    ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
 use regex::Regex;
 use std::{borrow::Cow, future::Future, sync::atomic::Ordering};
@@ -345,7 +345,8 @@ impl Login {
                         r.y += r.h + 0.04;
                         self.input_pwd.render_input(ui, r, t, "*".repeat(self.t_pwd.len()), tl!("password"), 0.62);
 
-                        let r = ui.text(tl!("forget-password"))
+                        let r = ui
+                            .text(tl!("forget-password"))
                             .pos(r.right() - 0.02, r.y + r.h + 0.02)
                             .anchor(1., 0.)
                             .size(0.4)
