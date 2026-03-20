@@ -108,7 +108,7 @@ mods-fade-in-sub = 音符在靠近判定線時會顯現
 mods-fade-out = 下隱
 mods-fade-out-sub = 音符在靠近判定線時會隱藏
 mods-nightcore = Nightcore
-mods-nightcore-sub = 以高倍速遊玩譜面
+mods-nightcore-sub = 譜面及音軌同步加速播放，並提高音調
 mods-rainbow = 彩虹
 mods-rainbow-sub = 碰到彩虹，吃一口彩虹~
 
