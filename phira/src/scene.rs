@@ -144,7 +144,7 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
         Some(Some((terms, modified))) => {
             let content = ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str();
             let lines = content.split('\n').collect::<Vec<_>>();
-            let pages = lines.chunks(10).map(|it| it.join("\n")).collect::<Vec<_>>();
+            let pages = lines.chunks(50).map(|it| it.join("\n")).collect::<Vec<_>>();
             let pages_len = pages.len();
             let mut page = 0;
             let gen_buttons = move |page: usize| {

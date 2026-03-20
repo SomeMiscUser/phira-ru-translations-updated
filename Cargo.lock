@@ -1695,9 +1695,9 @@ dependencies = [
 
 [[package]]
 name = "inputbox"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e493178f3fe2a02429797f38b43aa3830e3508f2500157ad1e8ffb9106e9d2b9"
+checksum = "4ff0d04cf163f47698d0ceddb443e82ba90add0ff629f5feb3bd22de3a02508f"
 dependencies = [
  "block2",
  "cfg-if",
