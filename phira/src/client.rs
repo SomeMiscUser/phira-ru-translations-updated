@@ -71,7 +71,7 @@ pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
         let status = response.status().as_str().to_owned();
         let text = response.text().await.context("failed to receive text")?;
         if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(detail) = what["detail"].as_str() {
+            if let Some(detail) = what["error"].as_str() {
                 bail!("request failed ({status}): {detail}");
             }
         }
@@ -164,7 +164,7 @@ impl Client {
             let status = resp.status().as_str().to_owned();
             let text = resp.text().await.context("failed to receive text")?;
             if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-                if let Some(detail) = what["detail"].as_str() {
+                if let Some(detail) = what["error"].as_str() {
                     bail!("request failed ({status}): {detail}");
                 }
             }
