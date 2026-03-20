@@ -917,3 +917,14 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra,
     process_lines(&mut lines);
     Ok(Chart::new(rpe.meta.offset as f32 / 1000.0, lines, r, ChartSettings::default(), extra, hitsounds))
 }
+
+pub async fn has_new_speed_events(source: &str) -> Result<bool> {
+    let rpe: RPEChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
+    Ok(rpe
+        .judge_line_list
+        .iter()
+        .flat_map(|line| line.event_layers.iter().flatten())
+        .flat_map(|layer| layer.speed_events.iter())
+        .flatten()
+        .any(|event| event.easing_type > 0))
+}
