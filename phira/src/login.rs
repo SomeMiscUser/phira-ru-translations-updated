@@ -174,7 +174,7 @@ impl Login {
                 return true;
             }
             if self.btn_reg.touch(touch, t) {
-                if !check_read_tos_and_policy(true, true) {
+                if !check_read_tos_and_policy(true, false) {
                     self.after_accept_tos = Some(NextAction::Register);
                     return true;
                 }
@@ -184,7 +184,7 @@ impl Login {
                 return true;
             }
             if self.btn_login.touch(touch, t) {
-                if !check_read_tos_and_policy(true, true) {
+                if !check_read_tos_and_policy(true, false) {
                     self.after_accept_tos = Some(NextAction::Login);
                     return true;
                 }
