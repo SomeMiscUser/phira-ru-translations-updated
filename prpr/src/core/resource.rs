@@ -389,6 +389,7 @@ pub struct Resource {
     pub background: SafeTexture,
     pub illustration: SafeTexture,
     pub icons: [SafeTexture; 8],
+    pub mod_icons: [SafeTexture; 6],
     pub res_pack: ResourcePack,
     pub player: SafeTexture,
     pub icon_back: SafeTexture,
@@ -415,17 +416,18 @@ pub struct Resource {
     pub model_stack: Vec<Matrix>,
 }
 
+macro_rules! loads {
+    ($($path:literal),*) => {
+        [$(loads!(@detail $path)),*]
+    };
+
+    (@detail $path:literal) => {
+        Texture2D::from_image(&load_image($path).await?).into()
+    };
+}
+
 impl Resource {
     pub async fn load_icons() -> Result<[SafeTexture; 8]> {
-        macro_rules! loads {
-            ($($path:literal),*) => {
-                [$(loads!(@detail $path)),*]
-            };
-
-            (@detail $path:literal) => {
-                Texture2D::from_image(&load_image($path).await?).into()
-            };
-        }
         Ok(loads![
             "rank/F.png",
             "rank/C.png",
@@ -435,6 +437,17 @@ impl Resource {
             "rank/V.png",
             "rank/FC.png",
             "rank/phi.png"
+        ])
+    }
+    pub async fn load_mod_icons() -> Result<[SafeTexture; 6]> {
+        // FLIP_X, FADE_OUT, FADE_IN, NIGHTCORE, RAINBOW, AUTOPLAY
+        Ok(loads![
+            "mod/flip_x.png",
+            "mod/fade_out.png",
+            "mod/fade_in.png",
+            "mod/nightcore.png",
+            "mod/rainbow.png",
+            "mod/autoplay.png"
         ])
     }
 
@@ -496,6 +509,7 @@ impl Resource {
             background,
             illustration,
             icons: Self::load_icons().await?,
+            mod_icons: Self::load_mod_icons().await?,
             res_pack,
             player: if let Some(player) = player { player } else { load_tex!("player.jpg") },
             icon_back: load_tex!("back.png"),

@@ -262,6 +262,17 @@ impl GameScene {
                 .push(Effect::new(0.0..f32::INFINITY, include_str!("fxaa.glsl"), Vec::new(), false).unwrap());
         }
 
+        if config.has_mod(Mods::NIGHTCORE) {
+            config.speed *= 1.5;
+        }
+
+        if config.has_mod(Mods::RAINBOW) {
+            chart
+                .extra
+                .effects
+                .push(Effect::new(0.0..f32::INFINITY, include_str!("rainbow.glsl"), Vec::new(), false).unwrap());
+        }
+
         let info_offset = info.offset;
         let mut res = Resource::new(
             config,
@@ -965,6 +976,7 @@ impl Scene for GameScene {
                                 self.res.icons.clone(),
                                 self.res.icon_retry.clone(),
                                 self.res.icon_proceed.clone(),
+                                self.res.mod_icons.clone(),
                                 self.res.info.clone(),
                                 self.judge.result(),
                                 &self.res.config,

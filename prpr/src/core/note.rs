@@ -1,6 +1,7 @@
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
 pub use crate::{
-    judge::{HitSound, JudgeStatus},
+    config::Mods,
+    judge::{HitSound, JudgeStatus, LIMIT_BAD},
     parse::RPE_HEIGHT,
 };
 use macroquad::prelude::*;
@@ -48,7 +49,6 @@ pub struct RenderConfig<'a> {
     pub ctrl_obj: &'a mut CtrlObject,
     pub line_height: f32,
     pub appear_before: f32,
-    pub invisible_time: f32,
     pub draw_below: bool,
     pub incline_sin: f32,
 }
@@ -198,9 +198,6 @@ impl Note {
                 return;
             }
         }
-        if config.invisible_time.is_finite() && self.time - config.invisible_time < res.time {
-            return;
-        }
         let scale = (if res.config.double_hint && self.multiple_hint {
             res.res_pack.note_style_mh.click.width() / res.res_pack.note_style.click.width()
         } else {
@@ -240,11 +237,19 @@ impl Note {
         } else {
             &res.res_pack.note_style
         };
+        let mod_alpha = if res.config.has_mod(Mods::FADE_OUT) {
+            ((self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
+        } else if res.config.has_mod(Mods::FADE_IN) {
+            (1. - (self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
+        } else {
+            1.
+        };
         let draw = |res: &mut Resource, tex: Texture2D| {
             let mut color = color;
             if !config.draw_below {
                 color.a *= (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
             }
+            color.a *= mod_alpha;
             res.with_model(self.now_transform(res, ctrl_obj, base, config.incline_sin), |res| {
                 draw_center(res, tex, order, scale, color);
             });
@@ -268,6 +273,7 @@ impl Note {
                         return;
                     }
                     let end_height = end_height / res.aspect_ratio * spd;
+                    color.a *= mod_alpha;
 
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
