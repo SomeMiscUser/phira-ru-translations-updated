@@ -449,15 +449,18 @@ impl Scene for MainScene {
                                 image::load_from_memory(&buffer).with_context(|| format!("failed to load image: {file}"))?;
                             }
 
-                            for audio in ["click.ogg", "drag.ogg", "flick.ogg", "ending.ogg"] {
-                                let mut entry = match zip.by_name(audio) {
-                                    Err(zip::result::ZipError::FileNotFound) => continue,
-                                    Err(err) => return Err(err.into()),
-                                    Ok(file) => file,
-                                };
-                                buffer.clear();
-                                entry.read_to_end(&mut buffer)?;
-                                AudioClip::new(mem::take(&mut buffer)).with_context(|| format!("failed to load audio: {audio}"))?;
+                            for audio in ["click", "drag", "flick", "ending"] {
+                                for ext in [".ogg", ".wav", ".mp3"] {
+                                    let mut entry = match zip.by_name(format!("{audio}{ext}").as_str()) {
+                                        Err(zip::result::ZipError::FileNotFound) => continue,
+                                        Err(err) => return Err(err.into()),
+                                        Ok(file) => file,
+                                    };
+                                    buffer.clear();
+                                    entry.read_to_end(&mut buffer)?;
+                                    AudioClip::new(mem::take(&mut buffer)).with_context(|| format!("failed to load audio: {audio}"))?;
+                                    break;
+                                }
                             }
                             config
                         };
