@@ -26,5 +26,6 @@ tip = Tip
 intro = 簡介
 tags = 標籤
 tag-exists = 標籤已存在
+rpe-170-speed = 新版速度緩動(RPE 1.7.0)
 
 illegal-input = 非法輸入
