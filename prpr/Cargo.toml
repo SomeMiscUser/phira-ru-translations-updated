@@ -43,10 +43,10 @@ image = { workspace = true, default-features = false, features = [
 ] }
 inputbox = { workspace = true }
 intl-memoizer = "0.5.3"
-libc = "0.2.180"
+libc = "0.2.183"
 lru = { workspace = true }
 lyon = { workspace = true }
-miniz_oxide = "0.9.0"
+miniz_oxide = "0.9.1"
 nalgebra = { workspace = true }
 obfstr = "0.4.4"
 once_cell = { workspace = true }
@@ -70,7 +70,7 @@ symphonia = { version = "0.5", features = [
 sys-locale = { workspace = true }
 tempfile = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { version = "0.3.22", optional = true }
+tracing-subscriber = { version = "0.3.23", optional = true }
 unic-langid = { version = "0.9.6", features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
 zip = { workspace = true, default-features = false, features = ["deflate"] }
@@ -91,7 +91,7 @@ objc2-ui-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"]
 objc2-uniform-type-identifiers = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-jni = "0.21.1"
+jni = "0.22.4"
 ndk-context = "0.1"
 sasa = { workspace = true, default-features = false, features = ["oboe"] }
 
