@@ -109,9 +109,9 @@ impl Video {
                     if self
                         .video
                         .with_frame(|frame| {
-                            buf[0].extend_from_slice(frame.data(0));
-                            buf[1].extend_from_slice(frame.data_half(1));
-                            buf[2].extend_from_slice(frame.data_half(2));
+                            frame.get_data(0, &mut buf[0]);
+                            frame.get_data_half(1, &mut buf[1]);
+                            frame.get_data_half(2, &mut buf[2]);
                         })
                         .is_none()
                     {
