@@ -259,6 +259,7 @@ impl Data {
             }
             self.respacks.push(filename);
         }
+        self.respack_id = self.respack_id.min(self.respacks.len().saturating_sub(1));
         if let Some(res_pack_path) = &mut self.config.res_pack_path {
             if res_pack_path.starts_with('/') {
                 // for compatibility
