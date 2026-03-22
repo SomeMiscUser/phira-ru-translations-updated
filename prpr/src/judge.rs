@@ -559,7 +559,7 @@ impl Judge {
                     let dt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
-                    let dist = (x.now() - pos.x).abs();
+                    let dist = (x.now() - pos.x).abs() / note.judge_area;
                     if dist > X_DIFF_MAX {
                         continue;
                     }

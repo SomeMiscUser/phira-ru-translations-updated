@@ -36,6 +36,8 @@ pub struct Note {
     pub time: f32,
     pub height: f32,
     pub speed: f32,
+    pub color: Color,
+    pub judge_area: f32,
 
     /// From the other side of the line
     pub above: bool,
@@ -205,7 +207,10 @@ impl Note {
         }) * res.note_width;
         let ctrl_obj = &mut config.ctrl_obj;
         self.init_ctrl_obj(ctrl_obj, config.line_height);
-        let mut color = self.object.now_color();
+        let mut color = Color {
+            a: self.object.now_alpha(),
+            ..self.color
+        };
         color.a *= res.alpha * ctrl_obj.alpha.now_opt().unwrap_or(1.);
         let spd = self.speed * ctrl_obj.y.now_opt().unwrap_or(1.);
 

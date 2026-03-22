@@ -151,6 +151,10 @@ struct RPENote {
     speed: f32,
     is_fake: u8,
     visible_time: f32,
+    #[serde(default)]
+    color: Option<[u8; 3]>,
+    #[serde(default)]
+    judge_area: Option<f32>,
 }
 
 #[derive(Deserialize)]
@@ -583,6 +587,8 @@ async fn parse_notes(
             time,
             height: note_height,
             speed: note.speed,
+            color: note.color.map_or(WHITE, |[r, g, b]| Color::from_rgba(r, g, b, 255)),
+            judge_area: note.judge_area.unwrap_or(1.0),
 
             above: note.above == 1,
             multiple_hint: false,
