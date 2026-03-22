@@ -47,6 +47,7 @@ pub struct Config {
     #[serde(rename = "adjust_time_new")]
     pub adjust_time: bool,
     pub aggressive: bool,
+    pub ap_fc_indicator: bool,
     pub aspect_ratio: Option<f32>,
     pub audio_buffer_size: Option<u32>,
     pub chart_debug: bool,
@@ -85,6 +86,7 @@ impl Default for Config {
         Self {
             adjust_time: false,
             aggressive: true,
+            ap_fc_indicator: true,
             aspect_ratio: None,
             audio_buffer_size: None,
             chart_debug: false,

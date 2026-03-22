@@ -46,6 +46,8 @@ item-audio-buffer-size = Audio Buffer Size
 
 item-show-acc = Real-Time Accuracy
 item-show-avg-fps = Show AVG FPS
+item-ap-fc-indicator = AP/FC Indicator
+item-ap-fc-indicator-sub = Use line color to indicate AP/FC status.
 item-dc-pause = Double-Tap to Pause
 item-dhint = Simultaneous Hint
 item-dhint-sub = Highlight notes that are meant to be hit at the same time.

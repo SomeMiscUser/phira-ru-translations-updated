@@ -1024,7 +1024,7 @@ impl Scene for GameScene {
             update(self.res.time, &mut self.res, &mut self.judge);
         }
         let counts = self.judge.counts();
-        self.res.judge_line_color = if counts[2] + counts[3] == 0 {
+        self.res.judge_line_color = if counts[2] + counts[3] == 0 && self.res.config.ap_fc_indicator {
             Color::from_hex_argb(if counts[1] == 0 {
                 self.res.res_pack.info.color_perfect
             } else {

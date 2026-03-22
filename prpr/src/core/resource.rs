@@ -465,9 +465,10 @@ impl Resource {
                 SafeTexture::from(Texture2D::from_image(&load_image($path).await?))
             };
         }
-        let res_pack = ResourcePack::from_path(config.res_pack_path.as_ref())
+        let mut res_pack = ResourcePack::from_path(config.res_pack_path.as_ref())
             .await
             .context("Failed to load resource pack")?;
+        res_pack.info.hit_fx_tinted &= config.ap_fc_indicator;
         let camera = Camera2D {
             target: vec2(0., 0.),
             zoom: vec2(1., -config.aspect_ratio.unwrap_or(info.aspect_ratio)),

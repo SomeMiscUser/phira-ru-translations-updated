@@ -46,6 +46,8 @@ item-audio-buffer-size = 音频缓冲区大小
 
 item-show-acc = 显示实时准度
 item-show-avg-fps = 显示平均帧率
+item-ap-fc-indicator = AP/FC（全完美/全连）指示器
+item-ap-fc-indicator-sub = 使用判定线颜色显示全 AP/FC 状态
 item-dc-pause = 双击暂停
 item-dhint = 双押提示
 item-dhint-sub = 同时触线的音符将会被高亮
