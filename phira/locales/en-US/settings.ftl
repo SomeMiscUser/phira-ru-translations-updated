@@ -53,6 +53,8 @@ item-dhint = Simultaneous Hint
 item-dhint-sub = Highlight notes that are meant to be hit at the same time.
 item-opt = Chart Optimization
 item-opt-sub = Significantly increase peformance while playing. (If unintended behavior arises, disable this.)
+item-use-keyboard = Use Keyboard
+item-use-keyboard-sub = Enable keyboard input for gameplay. Scores cannot be uploaded when enabled.
 item-speed = Speed
 item-note-size = Note Size
 

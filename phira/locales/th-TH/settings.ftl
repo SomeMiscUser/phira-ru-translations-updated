@@ -46,6 +46,8 @@ item-dhint = Highlight simul. notes
 item-dhint-sub = Note ที่ต้องกดพร้อมกันจะถูก Highlight
 item-opt = Aggressive optimization
 item-opt-sub = เพิ่มประสิทธิภาพของตัวเกม (อาจจะเกิดข้อผิดผลาดได้)
+item-use-keyboard = ใช้คีย์บอร์ด
+item-use-keyboard-sub = เปิดใช้งานอินพุตคีย์บอร์ดสำหรับการเล่นเกม คะแนนจะไม่สามารถอัปโหลดได้เมื่อเปิดใช้งาน
 item-speed = ความเร็ว
 item-note-size = ขนาดของ Note
 

@@ -688,6 +688,7 @@ struct ChartList {
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
+    use_keyboard_btn: DRectButton,
     speed_slider: Slider,
     size_slider: Slider,
 }
@@ -701,6 +702,7 @@ impl ChartList {
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
+            use_keyboard_btn: DRectButton::new(),
             speed_slider: Slider::new(0.5..2., 0.05),
             size_slider: Slider::new(0.8..1.2, 0.005),
         }
@@ -735,6 +737,10 @@ impl ChartList {
         }
         if self.opt_btn.touch(touch, t) {
             config.aggressive ^= true;
+            return Ok(Some(true));
+        }
+        if self.use_keyboard_btn.touch(touch, t) {
+            config.use_keyboard ^= true;
             return Ok(Some(true));
         }
         if let wt @ Some(_) = self.speed_slider.touch(touch, t, &mut config.speed) {
@@ -787,6 +793,10 @@ impl ChartList {
         item! {
             render_title(ui, tl!("item-opt"), Some(tl!("item-opt-sub")));
             render_switch(ui, rr, t, &mut self.opt_btn, config.aggressive);
+        }
+        item! {
+            render_title(ui, tl!("item-use-keyboard"), Some(tl!("item-use-keyboard-sub")));
+            render_switch(ui, rr, t, &mut self.use_keyboard_btn, config.use_keyboard);
         }
         item! {
             render_title(ui, tl!("item-speed"), None);

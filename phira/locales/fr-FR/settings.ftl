@@ -46,6 +46,8 @@ item-dhint = Indication d'appui simultané
 item-dhint-sub = Les notes qui touchent la ligne simultanément seront mises en surbrillance.
 item-opt = Optimisation agressive
 item-opt-sub = Améliore les performances, mais peux provoquer des comportements incorrects
+item-use-keyboard = Utiliser le clavier
+item-use-keyboard-sub = Activer l'entrée clavier pour le jeu. Les scores ne peuvent pas être téléchargés si activé.
 item-speed = Vitesse
 item-note-size = Taille des notes
 

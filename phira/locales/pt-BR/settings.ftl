@@ -31,8 +31,10 @@ item-show-acc = Mostre precisão em tempo real
 item-dc-pause = Toque duas vezes para pausar
 item-dhint = Destaque de notas simultâneas
 item-dhint-sub = Notas que tocam a linha simultaneamente será destacada 
-item-opt = Otimização agressiva 
-item-opt-sub = Melhora o desempenho, mas pode causar comportamento incorreto 
+item-opt = Otimização agressiva
+item-opt-sub = Melhora o desempenho, mas pode causar comportamento incorreto
+item-use-keyboard = Usar Teclado
+item-use-keyboard-sub = Ativar entrada de teclado para jogar. Pontuações não podem ser enviadas quando ativado.
 item-speed = Velocidade
 item-note-size = Tamanho da nota
 

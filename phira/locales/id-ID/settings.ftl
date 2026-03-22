@@ -33,6 +33,8 @@ item-dhint = Double hint
 item-dhint-sub = Note-note yang perlu ditekan bersamaan akan bersinar.
 item-opt = Optimizasi agresif
 item-opt-sub = Meningkatkan performa, tapi akan mungkin merusak beberapa fungsi aplikasi
+item-use-keyboard = Gunakan Keyboard
+item-use-keyboard-sub = Aktifkan input keyboard untuk bermain. Skor tidak dapat diupload jika diaktifkan.
 item-speed = Kecepatan
 item-note-size = Ukuran note
 

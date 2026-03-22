@@ -22,6 +22,8 @@ item-dhint = Podwójna wskazówka
 item-dhint-sub = Nuty, które dotykają linii jednocześnie będą podświetlane
 item-opt = Agresywna optymalizacja
 item-opt-sub = Popraw wydajność, może to spowodować niestabilność
+item-use-keyboard = Użyj klawiatury
+item-use-keyboard-sub = Włącz wprowadzanie z klawiatury do gry. Wyniki nie mogą być przesłane po włączeniu.
 item-note-size = Rozmiar nut
 
 load-cali-failed = Nie załadowano plików audio

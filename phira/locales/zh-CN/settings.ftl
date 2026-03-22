@@ -53,6 +53,8 @@ item-dhint = 双押提示
 item-dhint-sub = 同时触线的音符将会被高亮
 item-opt = 激进优化
 item-opt-sub = 采用激进的优化策略，提升性能但可能导致部分谱面显示出错
+item-use-keyboard = 使用键盘游玩
+item-use-keyboard-sub = 开启后可以使用键盘进行游戏，但成绩无法上传
 item-speed = 速度
 item-note-size = 音符大小
 

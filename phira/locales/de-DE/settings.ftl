@@ -46,6 +46,8 @@ item-dhint = Gleichzeitiger Hinweis
 item-dhint-sub = Hebt Noten hervor, die gleichzeitig getroffen werden müssen.
 item-opt = Level-Optimierung
 item-opt-sub = Spiel-Performance stark verbessern. (Bei unerwartetem Verhalten deaktivieren.)
+item-use-keyboard = Tastatur verwenden
+item-use-keyboard-sub = Tastatureingabe für das Spiel aktivieren. Ergebnisse können bei Aktivierung nicht hochgeladen werden.
 item-speed = Geschwindigkeit
 item-note-size = Notengröße
 

@@ -43,6 +43,7 @@ pub struct EndingScene {
     player_name: String,
     player_rks: Option<f32>,
     autoplay: bool,
+    use_keyboard: bool,
     speed: f32,
     mods: Mods,
     next: u8, // 0 -> none, 1 -> pop, 2 -> exit
@@ -130,6 +131,7 @@ impl EndingScene {
             player_name: config.player_name.clone(),
             player_rks,
             autoplay: config.autoplay(),
+            use_keyboard: config.use_keyboard,
             speed: config.speed,
             mods: config.mods,
             next: 0,
@@ -541,7 +543,7 @@ impl Scene for EndingScene {
             } else {
                 format!("{:.2}x", self.speed)
             };
-            let status_text = if !self.rated && !self.autoplay {
+            let status_text = if !self.rated && !self.autoplay && !self.use_keyboard {
                 if spd.is_empty() {
                     "UNRATED".to_string()
                 } else {

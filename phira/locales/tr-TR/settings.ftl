@@ -33,6 +33,8 @@ item-dhint = Aynı anda gelen notaları belirt
 item-dhint-sub = Çizgilere aynı anda dokunan notalar belirtilir.
 item-opt = Agresif optimizasyon
 item-opt-sub = Performansı artırır ama istenmeyen davranışlara sebep olabilir
+item-use-keyboard = Klavye Kullan
+item-use-keyboard-sub = Oyun için klavye girişini etkinleştir. Etkinleştirildiğinde skorlar yüklenemez.
 item-speed = Hız
 item-note-size = Nota boyutu
 
