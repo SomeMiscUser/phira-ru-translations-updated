@@ -48,7 +48,7 @@ use tracing::{error, info};
 use jni::{
     objects::{JClass, JString},
     sys::jint,
-    JNIEnv,
+    EnvUnowned,
 };
 
 static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
@@ -361,21 +361,16 @@ fn on_pause_resume(pause: bool) {
 }
 
 #[cfg(target_os = "android")]
-fn string_from_java(env: &mut JNIEnv, s: JString) -> String {
-    env.get_string(&s).unwrap().to_str().unwrap().to_owned()
-}
-
-#[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: JNIEnv, _: JClass) {
+pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: EnvUnowned, _class: JClass) {
     unsafe {
-        inputbox::backend::Android::initialize_raw(env.get_raw() as _).unwrap();
+        inputbox::backend::Android::initialize_raw(env.as_raw()).unwrap();
     }
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: JNIEnv, _: JClass) {
+pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: EnvUnowned, _class: JClass) {
     anti_addiction_action("leaveGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(true);
@@ -384,7 +379,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: JNIEnv,
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: JNIEnv, _: JClass) {
+pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: EnvUnowned, _class: JClass) {
     anti_addiction_action("enterGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(false);
@@ -393,40 +388,40 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: JNIEnv
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: JNIEnv, _: JClass) {
+pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: EnvUnowned, _class: JClass) {
     // std::process::exit(0);
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(mut env: JNIEnv, _: JClass, path: JString) {
-    *DATA_PATH.lock().unwrap() = Some(string_from_java(&mut env, path));
+pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(_env: EnvUnowned, _class: JClass, path: JString) {
+    *DATA_PATH.lock().unwrap() = Some(path.to_string());
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(mut env: JNIEnv, _: JClass, path: JString) {
-    let path = string_from_java(&mut env, path);
+pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(_env: EnvUnowned, _class: JClass, path: JString) {
+    let path = path.to_string();
     std::env::set_var("TMPDIR", path.clone());
     *CACHE_DIR.lock().unwrap() = Some(path);
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setDpi(_env: JNIEnv, _: JClass, dpi: jint) {
+pub extern "C" fn Java_quad_1native_QuadNative_setDpi(_env: EnvUnowned, _class: JClass, dpi: jint) {
     prpr::core::DPI_VALUE.store(dpi as _, std::sync::atomic::Ordering::SeqCst);
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setChosenFile(mut env: JNIEnv, _: JClass, file: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setChosenFile(_env: EnvUnowned, _class: JClass, file: JString) {
     use prpr::scene::CHOSEN_FILE;
-    CHOSEN_FILE.lock().unwrap().1 = Some(string_from_java(&mut env, file));
+    CHOSEN_FILE.lock().unwrap().1 = Some(file.to_string());
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_markImport(_env: JNIEnv, _: JClass) {
+pub extern "C" fn Java_quad_1native_QuadNative_markImport(_env: EnvUnowned, _class: JClass) {
     use prpr::scene::CHOSEN_FILE;
 
     CHOSEN_FILE.lock().unwrap().0 = Some("_import".to_owned());
@@ -434,7 +429,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_markImport(_env: JNIEnv, _: JClas
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_env: JNIEnv, _: JClass) {
+pub extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_env: EnvUnowned, _class: JClass) {
     use prpr::scene::CHOSEN_FILE;
 
     CHOSEN_FILE.lock().unwrap().0 = Some("_import_respack".to_owned());
@@ -442,9 +437,9 @@ pub extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_env: JNIEnv, _
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setInputText(mut env: JNIEnv, _: JClass, text: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setInputText(_env: EnvUnowned, _class: JClass, text: JString) {
     use prpr::scene::INPUT_TEXT;
-    INPUT_TEXT.lock().unwrap().1 = Some(string_from_java(&mut env, text));
+    INPUT_TEXT.lock().unwrap().1 = Some(text.to_string());
 }
 
 #[cfg(not(all(target_os = "android", feature = "aa")))]
@@ -452,29 +447,28 @@ pub fn anti_addiction_action(_action: &str, _arg: Option<String>) {}
 
 #[cfg(all(target_os = "android", feature = "aa"))]
 pub fn anti_addiction_action(action: &str, arg: Option<String>) {
-    use jni::objects::{JObject, JValueGen};
+    use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
 
-    let mut env = unsafe { JNIEnv::from_raw(miniquad::native::attach_jni_env() as _).unwrap() };
-    let ctx = unsafe { JObject::from_raw(ndk_context::android_context().context() as _) };
-    let arg = arg.as_ref().map(|it| env.new_string(it).unwrap());
-    env.call_method(
-        ctx,
-        "antiAddiction",
-        "(Ljava/lang/String;Ljava/lang/String;)V",
-        &[
-            JValueGen::Object(&env.new_string(action).unwrap()),
-            match &arg {
-                Some(s) => JValueGen::Object(s),
-                None => JValueGen::Void,
-            },
-        ],
-    )
-    .unwrap();
+    JavaVM::singleton()
+        .unwrap()
+        .attach_current_thread(|env| -> jni::errors::Result<()> {
+            let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
+            let action = env.new_string(action)?;
+            #[allow(clippy::redundant_closure)]
+            let arg = arg
+                .as_ref()
+                .map(|it| env.new_string(it))
+                .transpose()?
+                .map_or_else(|| JObject::null(), |s| s.into());
+            env.call_method(ctx, jni_str!("antiAddiction"), jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"), &[(&action).into(), (&arg).into()])?;
+            Ok(())
+        })
+        .unwrap();
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(_env: JNIEnv, _: JClass, #[allow(dead_code)] code: jint) {
+pub extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(_env: EnvUnowned, _class: JClass, #[allow(dead_code)] code: jint) {
     if cfg!(feature = "aa") {
         if let Some(tx) = AA_TX.lock().unwrap().as_mut() {
             let _ = tx.send(code);

@@ -17,6 +17,8 @@ use crate::{
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
 use inputbox::InputBox;
+#[cfg(target_os = "android")]
+use jni::{jni_sig, jni_str, objects::JObject, refs::Global, vm::JavaVM, EnvUnowned};
 use macroquad::prelude::*;
 use prpr::{
     ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
@@ -521,27 +523,35 @@ fn request_export() {
 }
 
 #[cfg(target_os = "android")]
-fn delete_uri(java_vm: jni::JavaVM, uri: jni::objects::GlobalRef) {
-    let mut env = java_vm.attach_current_thread().unwrap();
-    let ctx = ndk_context::android_context().context();
-    let ctx = unsafe { jni::objects::JObject::from_raw(ctx as _) };
-    env.call_method(ctx, "deleteUri", "(Landroid/net/Uri;)V", &[(&uri).into()]).unwrap();
+fn delete_uri(uri: Global<JObject<'static>>) {
+    JavaVM::singleton()
+        .unwrap()
+        .attach_current_thread(|env| -> jni::errors::Result<()> {
+            let ctx = ndk_context::android_context().context();
+            let ctx = unsafe { JObject::from_raw(env, ctx as _) };
+            env.call_method(ctx, jni_str!("deleteUri"), jni_sig!("(Landroid/net/Uri;)V"), &[uri.as_ref().into()])?;
+            Ok(())
+        })
+        .unwrap();
 }
 
 #[cfg(target_os = "android")]
 #[export_name = "Java_quad_1native_QuadNative_processExportFd"]
-extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, uri: jni::objects::JObject, fd: jni::sys::jint) {
+extern "system" fn process_export_fd(mut env: EnvUnowned, _: jni::objects::JClass, uri: jni::objects::JObject, fd: jni::sys::jint) {
     use std::os::fd::FromRawFd;
-    let java_vm = env.get_java_vm().unwrap();
-    let uri = env.new_global_ref(uri).unwrap();
-    let file = unsafe { File::from_raw_fd(fd as _) };
-    EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
-        file,
-        deleter: Box::new(|| {
-            delete_uri(java_vm, uri);
-            Ok(())
-        }),
-    }));
+    env.with_env(|env| -> jni::errors::Result<()> {
+        let uri = env.new_global_ref(uri)?;
+        let file = unsafe { File::from_raw_fd(fd as _) };
+        EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
+            file,
+            deleter: Box::new(|| {
+                delete_uri(uri);
+                Ok(())
+            }),
+        }));
+        Ok(())
+    })
+    .resolve::<jni::errors::ThrowRuntimeExAndDefault>()
 }
 
 #[cfg(target_env = "ohos")]
