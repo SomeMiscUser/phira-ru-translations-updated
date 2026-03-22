@@ -915,7 +915,7 @@ impl Page for LibraryPage {
         }
         if self.order_menu.changed() {
             self.current_order = self.order_menu_options[self.order_menu.selected()];
-            self.order_rev = self.current_order == ChartOrder::Default;
+            self.order_rev = matches!(self.current_order, ChartOrder::Default | ChartOrder::Rating);
             self.order_meta_menu.set_selected(usize::MAX);
             self.update_order_meta_menu_options();
             self.on_order_update(s);
