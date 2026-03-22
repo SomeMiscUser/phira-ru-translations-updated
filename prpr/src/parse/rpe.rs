@@ -926,5 +926,5 @@ pub async fn has_new_speed_events(source: &str) -> Result<bool> {
         .flat_map(|line| line.event_layers.iter().flatten())
         .flat_map(|layer| layer.speed_events.iter())
         .flatten()
-        .any(|event| event.easing_type > 0))
+        .any(|event| event.easing_type > 1))
 }
