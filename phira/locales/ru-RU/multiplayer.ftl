@@ -6,12 +6,12 @@ connect-success = Подключение успешно
 connect-failed = Ошибка подключения
 connect-authenticate-failed = Ошибка авторизации
 
-reconnect = Переподключение... 
+reconnect = Переподключение...
 
 create-room = Создать комнату
 create-room-success = Комната создана
 create-room-failed = Ошибка создания комнаты
-create-invalid-id = ID комнаты может быть длиной не более 20 символов, и может состоять из строчных и прописных букв, цифр, тире(-) и нижнего подчëркивания. 
+create-invalid-id = ID комнаты может быть длиной не более 20 символов, и может состоять из строчных и прописных букв, цифр, тире(-) и нижнего подчëркивания.
 
 join-room = Присоединиться
 join-room-invalid-id = Неверный ID комнаты
@@ -58,14 +58,14 @@ chat-send-failed = Ошибка при отправке
 select-chart-host-only = Только хост может выбирать чарт
 select-chart-local = Нельзя выбрать локальный чарт
 select-chart-failed = Ошибка при выборе чарта
-select-chart-not-now = Вы не можете пока что выбрать чарт. 
+select-chart-not-now = Вы не можете пока что выбрать чарт.
 
 msg-create-room = `{ $user }` создал комнату
 msg-join-room = `{ $user }` присоединился к комнате
 msg-leave-room = `{ $user }` покинул комнату
 msg-new-host = `{ $user }` стал новым хостом
 msg-select-chart = Хост `{ $user }` выбрал чарт `{ $chart }` (#{ $id })
-msg-game-start = Хост `{ $user }` начал игру. Остальные игроки, нажмите на кнопку, когда будете готовы. 
+msg-game-start = Хост `{ $user }` начал игру. Остальные игроки, нажмите на кнопку, когда будете готовы.
 msg-ready = `{ $user }` готов
 msg-cancel-ready = `{ $user }` отменил готовность
 msg-cancel-game = `{ $user }` отменил игру

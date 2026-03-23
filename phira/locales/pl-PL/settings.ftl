@@ -37,9 +37,37 @@ item-touch-debug-sub = Pokazuje dotknięcia
 about-content =
   Phira v{ $version }
 
-  Phira to niekomercyjna, oparta na społeczności gra rytmiczna, inspirowana grą Phigros, zrobioną w Rust.
+  Phira to niekomercyjna, oparta na społeczności gra rytmiczna, inspirowana grą Phigros.
 
-  Jeśli ta gra ci się podoba, proszę pomyśl nad wspieraniem nas na Patreon (@PhiraGame) lub afdian.com (@Mivik). Twoje wsparcie jest najlepszym impetem dla nas!
-
-  konto BiliBili: @Phira官方
+  Konto BiliBili: @Phira官方
   Grupa QQ: r48eajexth
+  Serwer Discord: discord.gg/gqpR3bTSsP
+
+  Zalecamy dołączenie do grupy QQ lub serwera Discord, aby otrzymywać aktualizacje na żywo i uzyskać pomoc.
+
+  Lista personelu (posortowana leksykograficznie)
+  Rozwój
+  { $development }
+
+  Operacje
+  { $operations }
+
+  Dokumentacja
+  { $documentation }
+
+  Sztuka
+  { $art }
+
+  Muzyka
+  { $music }
+
+  Dźwięk
+  { $audio }
+
+  Zarządzanie społecznością
+  { $community }
+
+  Lokalizacja
+  { $localization }
+
+  I wielu innych dobrowolnych recenzentów chartów. Pełną listę można znaleźć na https://phira.moe/staff

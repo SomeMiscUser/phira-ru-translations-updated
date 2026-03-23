@@ -43,3 +43,41 @@ item-touch-debug = タッチデバッグモード
 item-touch-debug-sub = タップした点を表示します
 
 load-cali-failed = オーディオの読み込みに失敗しました
+
+about-content =
+  Phira v{ $version }
+
+  PhiraはPhigrosにインスパイアされた非商業のコミュニティ主導のリズムゲームです。
+
+  BiliBiliアカウント: @Phira官方
+  QQ Guild: r48eajexth
+  Discord Server: discord.gg/gqpR3bTSsP
+
+  最新情報を入手し、サポートを受けるためにQQ GuildまたはDiscordサーバーへの参加をお勧めします。
+
+  スタッフリスト（辞書順）
+  開発
+  { $development }
+
+  運営
+  { $operations }
+
+  ドキュメント
+  { $documentation }
+
+  アート
+  { $art }
+
+  音楽
+  { $music }
+
+  オーディオ
+  { $audio }
+
+  コミュニティ管理
+  { $community }
+
+  ローカライズ
+  { $localization }
+
+  その他多くのボランティア譜面レビュアーの皆様に感謝します。完全なリストは https://phira.moe/staff をご覧ください。

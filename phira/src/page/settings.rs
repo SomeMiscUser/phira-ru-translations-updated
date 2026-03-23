@@ -13,6 +13,7 @@ use anyhow::Result;
 use bytesize::ByteSize;
 use inputbox::InputBox;
 use macroquad::prelude::*;
+use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
@@ -22,11 +23,109 @@ use prpr::{
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
+use serde::Deserialize;
 use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
 const STATUS_PAGE: &str = "https://status.phira.cn";
+
+struct NameList(String);
+impl<'de> Deserialize<'de> for NameList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = Vec::<String>::deserialize(deserializer)?;
+        Ok(Self(s.join(", ")))
+    }
+}
+
+#[derive(Deserialize)]
+struct LocalizationListRaw {
+    #[serde(rename = "en-US")]
+    en_us: NameList,
+    #[serde(rename = "fr-FR")]
+    fr_fr: NameList,
+    #[serde(rename = "de-DE")]
+    de_de: NameList,
+    #[serde(rename = "id-ID")]
+    id_id: NameList,
+    #[serde(rename = "ja-JP")]
+    ja_jp: NameList,
+    #[serde(rename = "ko-KR")]
+    ko_kr: NameList,
+    #[serde(rename = "pl-PL")]
+    pl_pl: NameList,
+    #[serde(rename = "pt-BR")]
+    pt_br: NameList,
+    #[serde(rename = "ru-RU")]
+    ru_ru: NameList,
+    #[serde(rename = "th-TH")]
+    th_th: NameList,
+    #[serde(rename = "zh-TW")]
+    zh_tw: NameList,
+    #[serde(rename = "tr-TR")]
+    tr_tr: NameList,
+    #[serde(rename = "vi-VN")]
+    vi_vn: NameList,
+}
+
+struct LocalizationList(String);
+impl<'de> Deserialize<'de> for LocalizationList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = LocalizationListRaw::deserialize(deserializer)?;
+        Ok(Self(format!(
+            "\
+English (en-US)\n{}\n
+French (fr-FR)\n{}\n
+German (de-DE)\n{}\n
+Indonesian (id-ID)\n{}\n
+Japanese (ja-JP)\n{}\n
+Korean (ko-KR)\n{}\n
+Polish (pl-PL)\n{}\n
+Portuguese (pt-BR)\n{}\n
+Russian (ru-RU)\n{}\n
+Thai (th-TH)\n{}\n
+Traditional Chinese (zh-TW)\n{}\n
+Turkish (tr-TR)\n{}\n
+Vietnamese (vi-VN)\n{}",
+            raw.en_us.0,
+            raw.fr_fr.0,
+            raw.de_de.0,
+            raw.id_id.0,
+            raw.ja_jp.0,
+            raw.ko_kr.0,
+            raw.pl_pl.0,
+            raw.pt_br.0,
+            raw.ru_ru.0,
+            raw.th_th.0,
+            raw.zh_tw.0,
+            raw.tr_tr.0,
+            raw.vi_vn.0
+        )))
+    }
+}
+
+#[derive(Deserialize)]
+struct StaffList {
+    development: NameList,
+    operations: NameList,
+    documentation: NameList,
+    art: NameList,
+    music: NameList,
+    audio: NameList,
+    community: NameList,
+    localization: LocalizationList,
+}
+
+static STAFF_LIST: Lazy<StaffList> = Lazy::new(|| {
+    let data = include_str!("../../staff.yml");
+    serde_yaml::from_str(data).unwrap()
+});
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SettingListType {
@@ -161,7 +260,7 @@ impl Page for SettingsPage {
                         SettingListType::Audio => self.list_audio.render(ui, r, t),
                         SettingListType::Chart => self.list_chart.render(ui, r, t),
                         SettingListType::Debug => self.list_debug.render(ui, r, t),
-                        SettingListType::About => render_settings(ui, r, &self.icon),
+                        SettingListType::About => render_about(ui, r, &self.icon),
                     });
                 });
 
@@ -180,7 +279,7 @@ impl Page for SettingsPage {
     }
 }
 
-fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
+fn render_about(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     r.x = 0.;
     r.y = 0.;
     let ow = r.w;
@@ -191,7 +290,20 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
     ui.fill_path(&ir.rounded(0.02), (**icon, ir));
 
-    let text = tl!("about-content", "version" => format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")));
+    let staff = &*STAFF_LIST;
+    let text = tl!(
+        "about-content",
+        "version" => format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")),
+
+        "development" => &staff.development.0,
+        "operations" => &staff.operations.0,
+        "documentation" => &staff.documentation.0,
+        "art" => &staff.art.0,
+        "music" => &staff.music.0,
+        "audio" => &staff.audio.0,
+        "community" => &staff.community.0,
+        "localization" => &staff.localization.0
+    );
     let (first, text) = text.split_once('\n').unwrap();
     let tr = ui
         .text(first)
