@@ -193,7 +193,7 @@ impl Scene for UnlockScene {
         match self.state {
             State::Playing => {
                 if t > 0.05 {
-                    self.video.render(t, asp);
+                    self.video.render(t, asp, WHITE);
                 }
             }
             State::Loading => {

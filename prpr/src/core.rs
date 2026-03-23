@@ -60,7 +60,7 @@ mod video;
 #[cfg(feature = "video")]
 pub use prpr_avc::demux_audio;
 #[cfg(feature = "video")]
-pub use video::Video;
+pub use video::{Video, VideoAttach};
 
 use crate::ui::TextPainter;
 use std::cell::RefCell;

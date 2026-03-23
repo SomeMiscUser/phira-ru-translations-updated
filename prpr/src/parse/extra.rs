@@ -8,7 +8,7 @@ use super::L10N_LOCAL;
 #[cfg(feature = "video")]
 use crate::core::Video;
 use crate::{
-    core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, EPS},
+    core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, VideoAttach, EPS},
     ext::ScaleType,
     fs::FileSystem,
 };
@@ -135,6 +135,8 @@ struct ExtVideo {
     alpha: ExtAnim<f32>,
     #[serde(default)]
     dim: ExtAnim<f32>,
+    #[serde(default)]
+    attach: Option<VideoAttach>,
 }
 
 #[derive(Deserialize)]
@@ -190,7 +192,7 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
     let mut videos = Vec::new();
     #[cfg(feature = "video")]
     for video in ext.videos {
-        videos.push(
+        videos.push((
             Video::new(
                 fs.load_file(&video.path)
                     .await
@@ -201,7 +203,8 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
                 video.dim.into(&mut r, Some(0.)),
             )
             .with_context(|| ptl!("video-load-failed", "path" => video.path))?,
-        );
+            video.attach,
+        ));
     }
     #[cfg(not(feature = "video"))]
     if !ext.videos.is_empty() {

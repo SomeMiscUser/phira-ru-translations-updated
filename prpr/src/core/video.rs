@@ -4,11 +4,17 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use miniquad::{Texture, TextureFormat, TextureParams, TextureWrap};
 use prpr_avc::AVPixelFormat;
+use serde::Deserialize;
 use std::{cell::RefCell, io::Write};
 use tempfile::NamedTempFile;
 
 thread_local! {
     static VIDEO_BUFFERS: RefCell<[Vec<u8>; 3]> = RefCell::default();
+}
+
+#[derive(Deserialize)]
+pub struct VideoAttach {
+    pub line: usize,
 }
 
 pub struct Video {
@@ -129,7 +135,7 @@ impl Video {
         Ok(())
     }
 
-    pub fn render(&self, t: f32, aspect_ratio: f32) {
+    pub fn render(&self, t: f32, aspect_ratio: f32, color: Color) {
         if t < self.start_time || self.ended {
             return;
         }
@@ -138,7 +144,7 @@ impl Video {
         let r = Rect::new(-1., -top, 2., top * 2.);
         let s = source_of_image(&self.tex_y, r, self.scale_type).unwrap_or_else(|| Rect::new(0., 0., 1., 1.));
         let dim = 1. - self.dim.now();
-        let color = Color::new(dim, dim, dim, self.alpha.now_opt().unwrap_or(1.));
+        let color = Color::new(dim * color.r, dim * color.g, dim * color.b, self.alpha.now_opt().unwrap_or(1.) * color.a);
         let vertices = [
             Vertex::new(r.x, r.y, 0., s.x, s.y, color),
             Vertex::new(r.right(), r.y, 0., s.right(), s.y, color),
