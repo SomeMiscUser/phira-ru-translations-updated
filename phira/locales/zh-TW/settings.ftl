@@ -51,6 +51,8 @@ item-dhint = 雙押提示
 item-dhint-sub = 同時觸線的音符將會被高亮
 item-opt = 激進優化
 item-opt-sub = 採用激進的優化策略，改善效能但可能導致部分譜面顯示出錯
+item-ap-fc-indicator = AP/FC 指示器
+item-ap-fc-indicator-sub = 以判定線顏色呈現 All Perfect / Full Combo 狀態
 item-use-keyboard = 使用鍵盤遊玩
 item-use-keyboard-sub = 開啟後可以使用鍵盤進行遊戲，但成績無法上傳
 item-prefer-reduced-motion = 減少動畫效果
@@ -83,7 +85,7 @@ about-content =
   運維
   { $operations }
 
-  文檔
+  說明文件
   { $documentation }
 
   美術
@@ -95,10 +97,10 @@ about-content =
   音效
   { $audio }
 
-  社區管理
+  社群管理
   { $community }
 
-  本地化
+  在地化
   { $localization }
 
   以及許多志願譜面審核員！完整列表參見 https://phira.moe/staff
