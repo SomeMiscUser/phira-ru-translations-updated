@@ -2401,7 +2401,7 @@ impl Scene for SongScene {
         self.back_btn.set(ui, r);
         ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
 
-        let alpha = fade_in_time().map_or(1., |t| ((t - self.fade_start) / t).clamp(-1., 0.) + 1.);
+        let alpha = fade_in_time().map_or(1., |tt| ((t - self.fade_start) / tt).clamp(-1., 0.) + 1.);
         ui.alpha::<Result<()>>(alpha, |ui| {
             let r = ui
                 .text(&self.info.name)
