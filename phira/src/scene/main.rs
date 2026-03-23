@@ -610,11 +610,12 @@ impl Scene for MainScene {
                             message.push('\n');
                             message += &itl!("batch-import-downloaded-skipped", "charts" => skipped);
                         }
-                        show_message(message);
 
                         if !warning_messages.is_empty() {
-                            Dialog::plain(itl!("warning"), warning_messages.join("\n\n")).show();
+                            message += "\n\n";
+                            message += &warning_messages.join("\n\n");
                         }
+                        Dialog::simple(message).show();
                     }
                 }
                 self.batch_import_task = None;
