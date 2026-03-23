@@ -20,7 +20,10 @@ use crate::{
 };
 use anyhow::{bail, Result};
 use byteorder::{LittleEndian as LE, ReadBytesExt, WriteBytesExt};
-use macroquad::{prelude::Color, texture::Texture2D};
+use macroquad::{
+    prelude::{Color, WHITE},
+    texture::Texture2D,
+};
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -339,6 +342,8 @@ impl BinaryData for Note {
             multiple_hint: false,
             fake: r.read()?,
             judge: JudgeStatus::NotJudged,
+            color: WHITE,
+            judge_area: 1.,
         })
     }
 

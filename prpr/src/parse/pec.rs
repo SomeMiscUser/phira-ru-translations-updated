@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use macroquad::color::WHITE;
 use std::{cell::RefCell, collections::HashMap};
 use tracing::warn;
 
@@ -209,8 +210,8 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
     macro_rules! last_note {
         () => {{
             let Some(last_line) = last_line else {
-                                                        ptl!(bail "no-notes-inserted");
-                                                    };
+                ptl!(bail "no-notes-inserted");
+            };
             lines[last_line].notes.last_mut().unwrap()
         }};
     }
@@ -273,6 +274,8 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         multiple_hint: false,
                         fake,
                         judge: JudgeStatus::NotJudged,
+                        color: WHITE,
+                        judge_area: 1.,
                     });
                     if it.next() == Some("#") {
                         last_note!().speed = it.take_f32()?;
