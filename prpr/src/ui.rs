@@ -42,7 +42,15 @@ use lyon::{
 use macroquad::prelude::*;
 use miniquad::PassAction;
 use sasa::{AudioManager, PlaySfxParams, Sfx};
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, ops::Range};
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::HashMap,
+    ops::Range,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+pub static PREFER_REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
 
 #[derive(Default, Clone, Copy)]
 pub struct Gravity(u8);
@@ -283,6 +291,10 @@ impl DRectButton {
         // let r = r.feather((1. - self.progress(t)) * self.delta);
         let ct = r.center();
         let ct = Vector::new(ct.x, ct.y);
+        if PREFER_REDUCED_MOTION.load(Ordering::Relaxed) {
+            f(ui, r.rounded(self.config.radius));
+            return;
+        }
         ui.with(
             Matrix::new_translation(&-ct)
                 .append_scaling(1. - (1. - self.progress(t)) * 0.04)
@@ -386,7 +398,7 @@ impl DRectButton {
     }
 
     pub fn progress(&mut self, t: f32) -> f32 {
-        if self.start_time.as_ref().is_some_and(|it| t > *it + Self::TIME) {
+        if self.start_time.as_ref().is_some_and(|it| t > *it + Self::TIME) || PREFER_REDUCED_MOTION.load(Ordering::Relaxed) {
             self.start_time = None;
         }
         let p = if let Some(time) = &self.start_time {

@@ -74,14 +74,27 @@ use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 // Things that need to be reloaded for chart info updates
 type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
 
-const FADE_IN_TIME: f32 = 0.3;
-const EDIT_TRANSIT: f32 = 0.32;
-
 static CONFIRM_CKSUM: AtomicBool = AtomicBool::new(false);
 static UPLOAD_NOT_SAVED: AtomicBool = AtomicBool::new(false);
 static CONFIRM_OVERWRITE: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
 pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
+
+fn fade_in_time() -> Option<f32> {
+    if get_data().prefer_reduced_motion {
+        None
+    } else {
+        Some(0.3)
+    }
+}
+
+fn edit_transit() -> Option<f32> {
+    if get_data().prefer_reduced_motion {
+        None
+    } else {
+        Some(0.32)
+    }
+}
 
 fn create_music(clip: AudioClip) -> Result<Music> {
     let mut music = UI_AUDIO.with(|it| {
@@ -1424,7 +1437,7 @@ impl Scene for SongScene {
         let res = match res.downcast::<SimpleRecord>() {
             Err(res) => res,
             Ok(rec) => {
-                self.fade_start = tm.now() as f32 + FADE_IN_TIME;
+                self.fade_start = tm.now() as f32 + fade_in_time().unwrap_or_default();
                 if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
                     self.rate_dialog.enter(tm.real_time() as _);
                 }
@@ -1492,7 +1505,7 @@ impl Scene for SongScene {
     fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
         if self.first_in {
             self.first_in = false;
-            tm.seek_to(-FADE_IN_TIME as _);
+            tm.seek_to(-fade_in_time().unwrap_or_default() as _);
             self.load_ldb();
         }
         if let Some(music) = &mut self.preview {
@@ -1542,7 +1555,7 @@ impl Scene for SongScene {
             return Ok(true);
         }
         if self.side_enter_time.is_finite() {
-            if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
+            if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + edit_transit().unwrap_or_default() {
                 if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
                     if matches!(self.side_content, SideContent::Mods) {
                         if let Some(index) = get_data().find_chart_by_path(self.local_path.as_deref().unwrap()) {
@@ -1735,7 +1748,7 @@ impl Scene for SongScene {
                 }));
             }
         }
-        if self.side_enter_time < 0. && -tm.real_time() as f32 + EDIT_TRANSIT < self.side_enter_time {
+        if self.side_enter_time < 0. && -tm.real_time() as f32 + edit_transit().unwrap_or_default() < self.side_enter_time {
             self.side_enter_time = f32::INFINITY;
         }
         if let Some(task) = &mut self.load_task {
@@ -2371,7 +2384,7 @@ impl Scene for SongScene {
         if self.confirm_cancel_edit.swap(false, Ordering::Relaxed) {
             self.hide_side(rt);
         }
-        if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() {
+        if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() && !get_data().prefer_reduced_motion {
             self.tr_start = rt;
         }
 
@@ -2388,7 +2401,8 @@ impl Scene for SongScene {
         self.back_btn.set(ui, r);
         ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
 
-        ui.alpha::<Result<()>>(((t - self.fade_start) / FADE_IN_TIME).clamp(-1., 0.) + 1., |ui| {
+        let alpha = fade_in_time().map_or(1., |t| ((t - self.fade_start) / t).clamp(-1., 0.) + 1.);
+        ui.alpha::<Result<()>>(alpha, |ui| {
             let r = ui
                 .text(&self.info.name)
                 .max_width(0.57 - r.right())
@@ -2523,7 +2537,7 @@ impl Scene for SongScene {
 
             let rt = tm.real_time() as f32;
             if self.side_enter_time.is_finite() {
-                let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
+                let p = edit_transit().map_or(1., |t| ((rt - self.side_enter_time.abs()) / t).min(1.));
                 let p = 1. - (1. - p).powi(3);
                 let p = if self.side_enter_time < 0. { 1. - p } else { p };
                 ui.fill_rect(ui.screen_rect(), semi_black(p * 0.6));

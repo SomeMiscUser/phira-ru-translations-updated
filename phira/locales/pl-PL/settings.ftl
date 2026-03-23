@@ -24,6 +24,8 @@ item-opt = Agresywna optymalizacja
 item-opt-sub = Popraw wydajność, może to spowodować niestabilność
 item-use-keyboard = Użyj klawiatury
 item-use-keyboard-sub = Włącz wprowadzanie z klawiatury do gry. Wyniki nie mogą być przesłane po włączeniu.
+item-prefer-reduced-motion = Preferuj zmniejszony ruch
+item-prefer-reduced-motion-sub = Zmniejsza animacje i efekty wizualne
 item-note-size = Rozmiar nut
 
 load-cali-failed = Nie załadowano plików audio

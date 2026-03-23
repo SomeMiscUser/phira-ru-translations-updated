@@ -32,6 +32,8 @@ item-opt = 最適化を優先
 item-opt-sub = パフォーマンスが向上しますが、動作が不安定になる可能性があります
 item-use-keyboard = キーボードを使用
 item-use-keyboard-sub = キーボード入力でプレイできます。有効にするとスコアはアップロードされません。
+item-prefer-reduced-motion = アニメーションを減らす
+item-prefer-reduced-motion-sub = アニメーションと視覚効果を減らします
 item-speed = 速さ
 item-note-size = ノーツの大きさ
 

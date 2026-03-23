@@ -48,6 +48,8 @@ item-opt = Level-Optimierung
 item-opt-sub = Spiel-Performance stark verbessern. (Bei unerwartetem Verhalten deaktivieren.)
 item-use-keyboard = Tastatur verwenden
 item-use-keyboard-sub = Tastatureingabe für das Spiel aktivieren. Ergebnisse können bei Aktivierung nicht hochgeladen werden.
+item-prefer-reduced-motion = Reduzierte Bewegung bevorzugen
+item-prefer-reduced-motion-sub = Animationen und visuelle Effekte reduzieren
 item-speed = Geschwindigkeit
 item-note-size = Notengröße
 

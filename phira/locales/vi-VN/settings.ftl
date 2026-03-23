@@ -48,6 +48,8 @@ item-opt = Tối ưu hoá
 item-opt-sub = Cải thiện hiệu năng, nhưng có thể gây ra một số hành vi không đúng.
 item-use-keyboard = Sử dụng bàn phím
 item-use-keyboard-sub = Bật đầu vào bàn phím để chơi game. Điểm không thể tải lên khi bật.
+item-prefer-reduced-motion = Ưu tiên giảm chuyển động
+item-prefer-reduced-motion-sub = Giảm hoạt ảnh và hiệu ứng hình ảnh
 item-speed = Tốc độ
 item-note-size = Kích thước Note
 

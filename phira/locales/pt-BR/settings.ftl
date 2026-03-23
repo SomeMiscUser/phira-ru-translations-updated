@@ -35,6 +35,8 @@ item-opt = Otimização agressiva
 item-opt-sub = Melhora o desempenho, mas pode causar comportamento incorreto
 item-use-keyboard = Usar Teclado
 item-use-keyboard-sub = Ativar entrada de teclado para jogar. Pontuações não podem ser enviadas quando ativado.
+item-prefer-reduced-motion = Preferir movimento reduzido
+item-prefer-reduced-motion-sub = Reduzir animações e efeitos visuais
 item-speed = Velocidade
 item-note-size = Tamanho da nota
 

@@ -1,4 +1,4 @@
-use crate::{anim::Anim, Result};
+use crate::{anim::Anim, get_data, Result};
 use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, RectExt},
@@ -81,7 +81,7 @@ impl<T> Tabs<T> {
             return;
         }
 
-        let (mut upper, mut lower) = Self::DURATIONS;
+        let (mut upper, mut lower) = if get_data().prefer_reduced_motion { (0., 0.) } else { Self::DURATIONS };
         if index > self.selected {
             std::mem::swap(&mut upper, &mut lower);
             self.prev_go_up = true;
@@ -152,7 +152,11 @@ impl<T> Tabs<T> {
 
         ui.fill_path(&cr.rounded(0.005), semi_black(0.4));
         ui.scissor::<Result<()>>(cr, |ui| {
-            let p = self.content_progress.now(t);
+            let p = if get_data().prefer_reduced_motion {
+                1.
+            } else {
+                self.content_progress.now(t)
+            };
             if p < 1. {
                 ui.scope(|ui| {
                     let dy = Self::CONTENT_DY * p;

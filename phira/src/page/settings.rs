@@ -18,7 +18,7 @@ use prpr::{
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui},
+    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
@@ -282,6 +282,7 @@ struct GeneralList {
     mp_addr_btn: DRectButton,
     #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
+    prefer_reduced_motion_btn: DRectButton,
     insecure_btn: DRectButton,
     enable_anys_btn: DRectButton,
     anys_gateway_btn: DRectButton,
@@ -316,6 +317,7 @@ impl GeneralList {
             mp_addr_btn: DRectButton::new(),
             #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
+            prefer_reduced_motion_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
             enable_anys_btn: DRectButton::new(),
             anys_gateway_btn: DRectButton::new(),
@@ -398,6 +400,11 @@ impl GeneralList {
         #[cfg(not(target_env = "ohos"))]
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
+            return Ok(Some(true));
+        }
+        if self.prefer_reduced_motion_btn.touch(touch, t) {
+            data.prefer_reduced_motion ^= true;
+            PREFER_REDUCED_MOTION.store(data.prefer_reduced_motion, Ordering::Relaxed);
             return Ok(Some(true));
         }
         if self.insecure_btn.touch(touch, t) {
@@ -497,6 +504,10 @@ impl GeneralList {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
             self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
         }
+        item! {
+            render_title(ui, tl!("item-prefer-reduced-motion"), Some(tl!("item-prefer-reduced-motion-sub")));
+            render_switch(ui, rr, t, &mut self.prefer_reduced_motion_btn, data.prefer_reduced_motion);
+        }
         #[cfg(not(target_env = "ohos"))]
         item! {
             render_title(ui, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
@@ -511,7 +522,8 @@ impl GeneralList {
             render_title(ui, tl!("item-clear-cache"), Some(cache_size));
             self.cache_btn.render_text(ui, rr, t, tl!("item-clear-cache-btn"), 0.5, true);
         }
-        h += 0.2;
+        ui.dy(0.04);
+        h += 0.04;
         item! {
             render_title(ui, tl!("item-insecure"), Some(tl!("item-insecure-sub")));
             render_switch(ui, rr, t, &mut self.insecure_btn, data.accept_invalid_cert);

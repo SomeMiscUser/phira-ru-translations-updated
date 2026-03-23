@@ -30,8 +30,15 @@ use std::{
 pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 
 const CHART_PADDING: f32 = 0.013;
-const TRANSIT_TIME: f32 = 0.4;
 const BACK_FADE_IN_TIME: f32 = 0.2;
+
+fn transit_time() -> Option<f32> {
+    if get_data().prefer_reduced_motion {
+        None
+    } else {
+        Some(0.4)
+    }
+}
 
 pub struct ChartDisplayItem {
     pub chart: Option<ChartItem>,
@@ -377,7 +384,7 @@ impl ChartsView {
         }
         if let Some(transit) = &mut self.transit {
             transit.chart.illu.settle(t);
-            if t > transit.start_time + TRANSIT_TIME {
+            if t > transit.start_time + transit_time().unwrap_or_default() {
                 if transit.back {
                     if transit.delete {
                         let data = get_data_mut();
@@ -484,7 +491,7 @@ impl ChartsView {
                                     if let Some((that_id, start_time)) = &self.back_fade_in {
                                         if id == *that_id {
                                             let p = ((t - start_time) / BACK_FADE_IN_TIME).max(0.);
-                                            if p > 1. {
+                                            if p > 1. || get_data().prefer_reduced_motion {
                                                 self.back_fade_in = None;
                                             } else {
                                                 ui.fill_path(&path, semi_black(0.55 * (1. - p)));
@@ -567,7 +574,7 @@ impl ChartsView {
     pub fn render_top(&mut self, ui: &mut Ui, t: f32) {
         if let Some(transit) = &self.transit {
             if let Some(fr) = transit.rect {
-                let p = ((t - transit.start_time) / TRANSIT_TIME).clamp(0., 1.);
+                let p = transit_time().map_or(1., |tt| ((t - transit.start_time) / tt).clamp(0., 1.));
                 let p = (1. - p).powi(4);
                 let p = if transit.back { p } else { 1. - p };
                 let r = Rect::tween(&fr, &ui.screen_rect(), p);

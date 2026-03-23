@@ -48,6 +48,8 @@ item-opt = Aggressive optimization
 item-opt-sub = เพิ่มประสิทธิภาพของตัวเกม (อาจจะเกิดข้อผิดผลาดได้)
 item-use-keyboard = ใช้คีย์บอร์ด
 item-use-keyboard-sub = เปิดใช้งานอินพุตคีย์บอร์ดสำหรับการเล่นเกม คะแนนจะไม่สามารถอัปโหลดได้เมื่อเปิดใช้งาน
+item-prefer-reduced-motion = ลดอนิเมชั่น
+item-prefer-reduced-motion-sub = ลดแอนิเมชันและเอฟเฟกต์ภาพ
 item-speed = ความเร็ว
 item-note-size = ขนาดของ Note
 

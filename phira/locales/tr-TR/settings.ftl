@@ -35,6 +35,8 @@ item-opt = Agresif optimizasyon
 item-opt-sub = Performansı artırır ama istenmeyen davranışlara sebep olabilir
 item-use-keyboard = Klavye Kullan
 item-use-keyboard-sub = Oyun için klavye girişini etkinleştir. Etkinleştirildiğinde skorlar yüklenemez.
+item-prefer-reduced-motion = Azaltılmış Hareket Tercih Et
+item-prefer-reduced-motion-sub = Animasyonları ve görsel efektleri azalt
 item-speed = Hız
 item-note-size = Nota boyutu
 
