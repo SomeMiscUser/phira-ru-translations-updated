@@ -176,27 +176,30 @@ impl Popup {
             return true;
         }
         if self.showing {
-            if self.rect.contains(touch.position) {
+            if touch.phase != TouchPhase::Started || self.rect.contains(touch.position) {
                 if self.scroll.touch(touch, t) {
                     return true;
                 }
-                for (id, (_, btn)) in self.options.iter_mut().enumerate() {
-                    if btn.touch(touch) {
-                        button_hit();
-                        if self.selected != id {
-                            self.selected = id;
-                            self.changed = true;
+                if self.rect.contains(touch.position) {
+                    for (id, (_, btn)) in self.options.iter_mut().enumerate() {
+                        if btn.touch(touch) {
+                            button_hit();
+                            if self.selected != id {
+                                self.selected = id;
+                                self.changed = true;
+                            }
+                            if self.auto_dismiss {
+                                self.dismiss(t);
+                            }
+                            return true;
                         }
-                        if self.auto_dismiss {
-                            self.dismiss(t);
-                        }
-                        return true;
                     }
+                    return true;
                 }
-                true
+                false
             } else if touch.phase == TouchPhase::Started {
                 self.pending_dismiss = true;
-                true
+                return true;
             } else {
                 false
             }
