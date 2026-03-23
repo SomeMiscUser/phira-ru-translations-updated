@@ -6,7 +6,7 @@ use crate::{
 use macroquad::{
     input::mouse_position,
     prelude::{Rect, Touch, TouchPhase, Vec2},
-    window::{screen_height, screen_width},
+    window::screen_height,
 };
 use nalgebra::Translation2;
 use std::collections::VecDeque;
@@ -318,8 +318,13 @@ impl Scroll {
 
     pub fn update(&mut self, t: f32) {
         let extra_scroll = if let Some(matrix) = self.matrix {
-            let pt = mouse_position();
-            let pt = matrix.transform_point(&Point::new(pt.0 / screen_width() * 2. - 1., pt.1 / screen_height() * 2. - 1.));
+            let (mx, my) = mouse_position();
+            let vp = crate::ext::get_viewport();
+            let pt = Point::new(
+                (mx - vp.0 as f32) / vp.2 as f32 * 2. - 1.,
+                ((my - (screen_height() - (vp.1 + vp.3) as f32)) / vp.3 as f32 * 2. - 1.) / (vp.2 as f32 / vp.3 as f32),
+            );
+            let pt = matrix.transform_point(&pt);
             if pt.x < 0. || pt.y < 0. || pt.x > self.size.0 || pt.y > self.size.1 {
                 0.
             } else {
@@ -354,6 +359,14 @@ impl Scroll {
         };
         self.x_scroller.size((s.0 - self.size.0).max(0.));
         self.y_scroller.size((s.1 - self.size.1).max(0.));
+    }
+
+    pub fn matrix(&self) -> Option<Matrix> {
+        self.matrix
+    }
+
+    pub fn set_matrix(&mut self, matrix: Option<Matrix>) {
+        self.matrix = matrix;
     }
 
     pub fn size(&mut self, size: (f32, f32)) {

@@ -226,14 +226,15 @@ impl Page for SettingsPage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
-        self.scroll.update(t);
-        if match self.tabs.selected() {
+        let changed = match self.tabs.selected() {
             SettingListType::General => self.list_general.update(t)?,
             SettingListType::Audio => self.list_audio.update(t)?,
             SettingListType::Chart => self.list_chart.update(t)?,
             SettingListType::Debug => self.list_debug.update(t)?,
             SettingListType::About => false,
-        } {
+        };
+        self.scroll.update(t);
+        if changed {
             self.save_time = t;
         }
         if t > self.save_time + Self::SAVE_TIME {

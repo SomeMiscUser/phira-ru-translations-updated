@@ -1,6 +1,8 @@
 use crate::page::Fader;
 use macroquad::prelude::*;
+use nalgebra::Translation2;
 use prpr::{
+    core::Matrix,
     ext::{semi_black, semi_white, RectExt},
     ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, Scroll, ShadowConfig, Ui},
 };
@@ -150,7 +152,18 @@ impl Popup {
     }
 
     pub fn update(&mut self, t: f32) {
-        self.scroll.update(t);
+        if self.showing {
+            let old_matrix = self.scroll.matrix();
+            let mut transform = Matrix::identity();
+            transform *= Translation2::new(self.rect.x, self.rect.y).to_homogeneous();
+            if let Some(inv) = transform.try_inverse() {
+                self.scroll.set_matrix(Some(inv));
+            }
+            self.scroll.update(t);
+            self.scroll.set_matrix(old_matrix);
+        } else {
+            self.scroll.update(t);
+        }
         self.fader.done(t);
     }
 
@@ -163,25 +176,24 @@ impl Popup {
             return true;
         }
         if self.showing {
-            if touch.phase != TouchPhase::Started || self.rect.contains(touch.position) {
+            if self.rect.contains(touch.position) {
                 if self.scroll.touch(touch, t) {
-                    true
-                } else {
-                    for (id, (_, btn)) in self.options.iter_mut().enumerate() {
-                        if btn.touch(touch) {
-                            button_hit();
-                            if self.selected != id {
-                                self.selected = id;
-                                self.changed = true;
-                            }
-                            if self.auto_dismiss {
-                                self.dismiss(t);
-                            }
-                            return true;
-                        }
-                    }
-                    false
+                    return true;
                 }
+                for (id, (_, btn)) in self.options.iter_mut().enumerate() {
+                    if btn.touch(touch) {
+                        button_hit();
+                        if self.selected != id {
+                            self.selected = id;
+                            self.changed = true;
+                        }
+                        if self.auto_dismiss {
+                            self.dismiss(t);
+                        }
+                        return true;
+                    }
+                }
+                true
             } else if touch.phase == TouchPhase::Started {
                 self.pending_dismiss = true;
                 true
@@ -276,10 +288,12 @@ impl ChooseButton {
 
     pub fn top_touch(&mut self, touch: &Touch, t: f32) -> bool {
         if self.popup.showing() {
-            self.popup.touch(touch, t);
-            true
+            if self.popup.touch(touch, t) {
+                return true;
+            }
+            self.popup.rect.contains(touch.position)
         } else {
-            false
+            self.popup.fader.transiting()
         }
     }
 
