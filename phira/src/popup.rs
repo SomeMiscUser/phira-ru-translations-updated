@@ -199,7 +199,7 @@ impl Popup {
                 false
             } else if touch.phase == TouchPhase::Started {
                 self.pending_dismiss = true;
-                return true;
+                true
             } else {
                 false
             }
