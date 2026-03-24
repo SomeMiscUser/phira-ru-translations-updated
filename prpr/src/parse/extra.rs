@@ -8,7 +8,7 @@ use super::L10N_LOCAL;
 #[cfg(feature = "video")]
 use crate::core::Video;
 use crate::{
-    core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, VideoAttach, EPS},
+    core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, EPS},
     ext::ScaleType,
     fs::FileSystem,
 };
@@ -135,8 +135,9 @@ struct ExtVideo {
     alpha: ExtAnim<f32>,
     #[serde(default)]
     dim: ExtAnim<f32>,
+    #[cfg(feature = "video")]
     #[serde(default)]
-    attach: Option<VideoAttach>,
+    attach: Option<crate::core::VideoAttach>,
 }
 
 #[derive(Deserialize)]
