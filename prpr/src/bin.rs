@@ -343,6 +343,7 @@ impl BinaryData for Note {
             fake: r.read()?,
             judge: JudgeStatus::NotJudged,
             color: WHITE,
+            fx_color: None,
             judge_area: 1.,
         })
     }

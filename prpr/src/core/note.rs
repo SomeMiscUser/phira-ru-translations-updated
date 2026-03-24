@@ -37,6 +37,7 @@ pub struct Note {
     pub height: f32,
     pub speed: f32,
     pub color: Color,
+    pub fx_color: Option<Color>,
     pub judge_area: f32,
 
     /// From the other side of the line
@@ -142,11 +143,13 @@ impl Note {
         if let Some(color) = if let JudgeStatus::Hold(perfect, at, ..) = &mut self.judge {
             if res.time > *at {
                 *at += HOLD_PARTICLE_INTERVAL / res.config.speed;
-                Some(if *perfect {
-                    res.res_pack.info.fx_perfect()
-                } else {
-                    res.res_pack.info.fx_good()
-                })
+                Some(self.fx_color.unwrap_or_else(|| {
+                    if *perfect {
+                        res.res_pack.info.fx_perfect()
+                    } else {
+                        res.res_pack.info.fx_good()
+                    }
+                }))
             } else {
                 None
             }

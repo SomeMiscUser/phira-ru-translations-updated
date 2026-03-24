@@ -275,6 +275,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         fake,
                         judge: JudgeStatus::NotJudged,
                         color: WHITE,
+                        fx_color: None,
                         judge_area: 1.,
                     });
                     if it.next() == Some("#") {

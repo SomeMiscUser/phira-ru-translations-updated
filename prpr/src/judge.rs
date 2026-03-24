@@ -795,11 +795,15 @@ impl Judge {
             }
             if match judgement {
                 Judgement::Perfect => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect()));
+                    res.with_model(line_tr * note.object.now(res), |res| {
+                        res.emit_at_origin(note.rotation(line), note.fx_color.unwrap_or_else(|| res.res_pack.info.fx_perfect()))
+                    });
                     true
                 }
                 Judgement::Good => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good()));
+                    res.with_model(line_tr * note.object.now(res), |res| {
+                        res.emit_at_origin(note.rotation(line), note.fx_color.unwrap_or_else(|| res.res_pack.info.fx_good()))
+                    });
                     true
                 }
                 Judgement::Bad => {
