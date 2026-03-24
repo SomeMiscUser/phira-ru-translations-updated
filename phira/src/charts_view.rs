@@ -351,8 +351,8 @@ impl ChartsView {
 
     pub fn update(&mut self, t: f32) -> Result<bool> {
         let refreshed = self.can_refresh && self.scroll.y_scroller.pulled;
-        self.scroll.update(t);
         self.chart_menu.update(t);
+        self.scroll.update(t);
         if self.chart_menu.changed() {
             let has_header = self.has_header();
             let editing = self.editing_chart.unwrap();

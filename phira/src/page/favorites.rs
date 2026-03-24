@@ -521,12 +521,12 @@ impl Page for FavoritesPage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
-        self.scroll.update(s.rt);
-        self.info_scroll.update(s.rt);
-
         self.edit_menu.update(t);
         self.operations_menu.update(t);
         self.cloud_menu.update(t);
+
+        self.scroll.update(s.rt);
+        self.info_scroll.update(s.rt);
 
         for folder in &mut self.folders {
             folder.cover.settle(t);

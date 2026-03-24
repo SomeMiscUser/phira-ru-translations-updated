@@ -810,6 +810,9 @@ impl Page for LibraryPage {
             }
         }
         self.order_menu.update(t);
+        self.order_meta_menu.update(t);
+        self.multi_operation_menu.update(t);
+        self.multi_select_menu.update(t);
         for chart in &mut s.charts_local {
             chart.illu.settle(t);
         }
@@ -986,7 +989,6 @@ impl Page for LibraryPage {
                 _ => {}
             }
         }
-        self.multi_operation_menu.update(t);
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
         }
