@@ -136,6 +136,6 @@ stabilize-approved-passed = 已通过，谱面已 stable
 stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
 
-fav-added = 已收藏
+fav-added = 已收藏（长按以选择其他收藏夹）
 
 still-loading = 仍在加载中…
