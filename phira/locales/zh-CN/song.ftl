@@ -111,6 +111,8 @@ mods-nightcore = 夜店
 mods-nightcore-sub = 以高倍速游玩谱面
 mods-rainbow = 彩虹
 mods-rainbow-sub = 遇上彩虹，吃定彩虹
+mods-no-shader = 无着色器
+mods-no-shader-sub = 禁用着色器特效。*启用此 Mod 后无法上传成绩*
 
 rate-failed = 评分失败
 rate-done = 评分成功

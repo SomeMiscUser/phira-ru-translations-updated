@@ -97,6 +97,9 @@ mods-nightcore = Nightcore
 mods-nightcore-sub = 譜面及音軌同步加速播放，並提高音調
 mods-rainbow = 彩虹
 mods-rainbow-sub = 碰到彩虹，吃一口彩虹~
+mods-no-shader = 無著色器
+mods-no-shader-sub = 禁用著色器特效。*啟用此 Mod 後無法上傳成績*
+
 rate-failed = 評分失敗
 rate-done = 評分成功
 need-update = 譜面更新

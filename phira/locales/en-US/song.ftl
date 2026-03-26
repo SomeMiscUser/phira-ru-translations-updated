@@ -113,6 +113,8 @@ mods-nightcore = Nightcore
 mods-nightcore-sub = Plays the chart at higher speed
 mods-rainbow = Rainbow
 mods-rainbow-sub = Makes your game a *little* more colorful
+mods-no-shader = No Shader
+mods-no-shader-sub = Disables shader effects. *YOU CAN'T UPLOAD SCORES WITH THIS MOD ENABLED*
 
 rate-failed = Rate failed.
 rate-done = Rated successfully.

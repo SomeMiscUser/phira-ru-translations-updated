@@ -791,7 +791,7 @@ impl SongScene {
         #[cfg(closed)]
         let rated = {
             let config = &get_data().config;
-            !config.offline_mode && can_rated && !mods.contains(Mods::AUTOPLAY) && config.speed >= 1.0 - 1e-3
+            !config.offline_mode && can_rated && !mods.intersects(Mods::UNRATED) && config.speed >= 1.0 - 1e-3
         };
         #[cfg(not(closed))]
         let rated = false;
@@ -1305,6 +1305,7 @@ impl SongScene {
             item(tl!("mods-fade-out"), Some(tl!("mods-fade-out-sub")), Mods::FADE_OUT);
             item(tl!("mods-nightcore"), Some(tl!("mods-nightcore-sub")), Mods::NIGHTCORE);
             item(tl!("mods-rainbow"), Some(tl!("mods-rainbow-sub")), Mods::RAINBOW);
+            item(tl!("mods-no-shader"), Some(tl!("mods-no-shader-sub")), Mods::NO_SHADER);
             (width, h)
         });
     }

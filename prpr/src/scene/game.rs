@@ -254,6 +254,10 @@ impl GameScene {
         }
 
         let (mut chart, chart_bytes, chart_format) = Self::load_chart(fs.deref_mut(), &info).await?;
+        if config.mods.contains(Mods::NO_SHADER) {
+            chart.extra.effects.clear();
+            chart.extra.global_effects.clear();
+        }
         let effects = std::mem::take(&mut chart.extra.global_effects);
         if config.fxaa {
             chart
@@ -950,7 +954,7 @@ impl Scene for GameScene {
                     #[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode
-                            && !self.res.config.autoplay()
+                            && !self.res.config.mods.intersects(Mods::UNRATED)
                             && !self.res.config.use_keyboard
                             && self.res.config.speed >= 1.0 - 1e-3
                         {
@@ -962,7 +966,7 @@ impl Scene for GameScene {
                         }
                     }
                     let result = self.judge.result();
-                    let record = if self.res.config.autoplay() || self.res.config.speed < 1.0 - 1e-3 {
+                    let record = if self.res.config.mods.intersects(Mods::UNRATED) || self.res.config.speed < 1.0 - 1e-3 {
                         None
                     } else {
                         Some(SimpleRecord {

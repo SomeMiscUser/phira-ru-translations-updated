@@ -11,12 +11,15 @@ bitflags! {
     #[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, Debug)]
     #[serde(transparent)]
     pub struct Mods: i32 {
-        const AUTOPLAY = 1;
-        const FLIP_X = 2;
-        const FADE_OUT = 4;
-        const FADE_IN = 8;
-        const NIGHTCORE = 16;
-        const RAINBOW = 32;
+        const AUTOPLAY = 0x0001;
+        const FLIP_X = 0x0002;
+        const FADE_OUT = 0x0004;
+        const FADE_IN = 0x0008;
+        const NIGHTCORE = 0x0010;
+        const RAINBOW = 0x0020;
+        const NO_SHADER = 0x0040;
+
+        const UNRATED = Self::AUTOPLAY.bits() | Self::NO_SHADER.bits();
     }
 }
 
