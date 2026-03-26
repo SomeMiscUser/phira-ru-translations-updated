@@ -113,6 +113,10 @@ mods-nightcore = Nightcore
 mods-nightcore-sub = Plays the chart at higher speed
 mods-rainbow = Rainbow
 mods-rainbow-sub = Makes your game a *little* more colorful
+mods-instant-death-ap = Instant Death (AP)
+mods-instant-death-ap-sub = Fail on any judgment below Perfect.
+mods-instant-death-fc = Instant Death (FC)
+mods-instant-death-fc-sub = Fail if the combo is broken.
 mods-no-shader = No Shader
 mods-no-shader-sub = Disables shader effects. *YOU CAN'T UPLOAD SCORES WITH THIS MOD ENABLED*
 

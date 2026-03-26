@@ -111,6 +111,10 @@ mods-nightcore = 夜店
 mods-nightcore-sub = 以高倍速游玩谱面
 mods-rainbow = 彩虹
 mods-rainbow-sub = 遇上彩虹，吃定彩虹
+mods-instant-death-ap = 突然死亡（AP）
+mods-instant-death-ap-sub = 非完美判定立即失败
+mods-instant-death-fc = 突然死亡（FC）
+mods-instant-death-fc-sub = 连击中断立即失败
 mods-no-shader = 无着色器
 mods-no-shader-sub = 禁用着色器特效。*启用此 Mod 后无法上传成绩*
 

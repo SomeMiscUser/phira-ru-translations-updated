@@ -1305,8 +1305,10 @@ impl SongScene {
             item(tl!("mods-fade-out"), Some(tl!("mods-fade-out-sub")), Mods::FADE_OUT);
             item(tl!("mods-nightcore"), Some(tl!("mods-nightcore-sub")), Mods::NIGHTCORE);
             item(tl!("mods-rainbow"), Some(tl!("mods-rainbow-sub")), Mods::RAINBOW);
+            item(tl!("mods-instant-death-ap"), Some(tl!("mods-instant-death-ap-sub")), Mods::INSTANT_DEATH_AP);
+            item(tl!("mods-instant-death-fc"), Some(tl!("mods-instant-death-fc-sub")), Mods::INSTANT_DEATH_FC);
             item(tl!("mods-no-shader"), Some(tl!("mods-no-shader-sub")), Mods::NO_SHADER);
-            (width, h)
+            (width, h + 0.2)
         });
     }
 

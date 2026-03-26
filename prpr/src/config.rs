@@ -18,6 +18,8 @@ bitflags! {
         const NIGHTCORE = 0x0010;
         const RAINBOW = 0x0020;
         const NO_SHADER = 0x0040;
+        const INSTANT_DEATH_AP = 0x0080;
+        const INSTANT_DEATH_FC = 0x0100;
 
         const UNRATED = Self::AUTOPLAY.bits() | Self::NO_SHADER.bits();
     }
@@ -38,6 +40,8 @@ impl Mods {
         match flag {
             Mods::FADE_IN => &[Mods::FADE_OUT],
             Mods::FADE_OUT => &[Mods::FADE_IN],
+            Mods::INSTANT_DEATH_AP => &[Mods::INSTANT_DEATH_FC],
+            Mods::INSTANT_DEATH_FC => &[Mods::INSTANT_DEATH_AP],
             _ => &[],
         }
     }

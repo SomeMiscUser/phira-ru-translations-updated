@@ -153,6 +153,8 @@ pub struct GameScene {
     fps_frame_count: u32,
     fps_total_time: f64,
     fps_last_frame_time: f64,
+
+    dead: bool,
 }
 
 macro_rules! reset {
@@ -170,6 +172,7 @@ macro_rules! reset {
         $self.fps_frame_count = 0;
         $self.fps_total_time = 0.0;
         $self.fps_last_frame_time = $tm.real_time();
+        $self.dead = false;
     }};
 }
 
@@ -342,6 +345,8 @@ impl GameScene {
             fps_frame_count: 0,
             fps_total_time: 0.0,
             fps_last_frame_time: 0.0,
+
+            dead: false,
         })
     }
 
@@ -549,12 +554,13 @@ impl GameScene {
                 },
             );
             let r = Rect::new(0., o, 0., 0.).feather(s);
-            ui.fill_rect(r, (*res.icon_retry, r.feather(0.02), ScaleType::Fit, if no_retry { semi_white(res.alpha * 0.6) } else { c }));
+            let disabled_color = semi_white(res.alpha * 0.4);
+            ui.fill_rect(r, (*res.icon_retry, r.feather(0.02), ScaleType::Fit, if no_retry { disabled_color } else { c }));
             draw_texture_ex(
                 *res.icon_resume,
                 s + w,
                 -s + o,
-                c,
+                if self.dead { disabled_color } else { c },
                 DrawTextureParams {
                     dest_size: Some(vec2(s * 2., s * 2.)),
                     ..Default::default()
@@ -577,7 +583,7 @@ impl GameScene {
                         }
                     }
                 }
-                if no_retry && clicked == Some(0) {
+                if no_retry && clicked == Some(0) || self.dead && clicked == Some(1) {
                     clicked = None;
                 }
                 let mut pos = self.music.position();
@@ -1041,6 +1047,19 @@ impl Scene for GameScene {
         } else {
             WHITE
         };
+        if !self.dead
+            && (self.res.config.mods.contains(Mods::INSTANT_DEATH_AP) && counts[1] + counts[2] + counts[3] > 0
+                || self.res.config.mods.contains(Mods::INSTANT_DEATH_FC) && counts[2] + counts[3] > 0)
+        {
+            if !self.music.paused() {
+                self.music.pause()?;
+            }
+            tm.pause();
+            self.dead = true;
+            #[cfg(target_env = "ohos")]
+            miniquad::native::set_interceptor_state(false);
+            show_message(tl!("game-over")).error();
+        }
         self.res.judge_line_color.a *= self.res.alpha;
         self.chart.update(&mut self.res);
         let res = &mut self.res;
