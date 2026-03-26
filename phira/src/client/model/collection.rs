@@ -1,18 +1,22 @@
 use std::{
     borrow::Cow,
+    collections::HashSet,
     hash::{Hash, Hasher},
 };
 
 use crate::{
-    client::File,
-    get_data,
+    client::{recv_raw, Client, File},
+    dir, get_data,
     page::{local_illustration, Illustration},
 };
 
 use super::{Chart, Object, Ptr, User};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
-use prpr::ext::BLACK_TEXTURE;
+use prpr::{ext::BLACK_TEXTURE, info::ChartInfo, task::Task, ui::Dialog};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,10 +54,14 @@ impl ChartRef {
         }
     }
 
-    pub fn matches(&self, path_or_id: (Option<&str>, Option<i32>)) -> bool {
+    pub fn is_online(&self) -> bool {
+        self.local_path().starts_with("download/")
+    }
+
+    pub fn id(&self) -> Option<i32> {
         match self {
-            ChartRef::Online(id, _) => path_or_id.1 == Some(*id),
-            ChartRef::Local(path) => path_or_id.0 == Some(path.as_str()),
+            Self::Online(id, _) => Some(*id),
+            Self::Local(_) => None,
         }
     }
 }
@@ -89,6 +97,14 @@ pub enum CollectionCover {
     Unset,
     Online(File),
     LocalChart(String),
+}
+
+pub enum CollectionUpdate {
+    Unchanged,
+    Updated {
+        sync_task: Option<Task<Result<(Collection, bool)>>>,
+        add: bool,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -160,12 +176,75 @@ impl LocalCollection {
             is_default: self.is_default,
         }
     }
+
+    #[must_use]
+    pub fn update(mut self, uuid: Uuid, charts: &[ChartRef], add: bool) -> CollectionUpdate {
+        let data = get_data();
+        if self.id.is_some() && charts.iter().any(|it| !it.is_online()) {
+            let dir = dir::charts().unwrap();
+            let charts: Vec<_> = charts
+                .iter()
+                .filter(|it| !it.is_online())
+                .filter_map(|it| {
+                    let path = format!("{dir}/{}/info.yml", it.local_path());
+                    let info = std::fs::read_to_string(path).ok()?;
+                    serde_yaml::from_str::<ChartInfo>(&info).ok().map(|info| info.name)
+                })
+                .collect();
+            Dialog::simple(ttl!("favorites-online-only", "charts" => charts.join(", "))).show();
+            return CollectionUpdate::Unchanged;
+        }
+
+        let should_upload = self.id.is_some() && !get_data().config.offline_mode;
+        let mut updated = false;
+        if add {
+            let local_paths: HashSet<String> = self.charts.iter().map(|it| it.local_path().into_owned()).collect();
+            for chart in charts {
+                if !local_paths.contains(chart.local_path().as_ref()) {
+                    self.charts.push(chart.clone());
+                    updated = true;
+                }
+            }
+        } else {
+            let to_remove: HashSet<ChartRef> = charts.iter().cloned().collect();
+            self.charts.retain(|it| {
+                if to_remove.contains(it) {
+                    updated = true;
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+        if !updated {
+            return CollectionUpdate::Unchanged;
+        }
+
+        let id = self.id;
+        data.set_collection_info(&uuid, self).unwrap();
+        if !should_upload {
+            return CollectionUpdate::Updated { sync_task: None, add };
+        }
+
+        let col_ids = charts.iter().filter_map(|it| it.id()).collect::<Vec<_>>();
+        CollectionUpdate::Updated {
+            sync_task: Some(Task::new(async move {
+                let resp: Collection =
+                    recv_raw(Client::request(Method::PATCH, format!("/collection/{}", id.unwrap())).json(&CollectionPatch::Set(col_ids)))
+                        .await?
+                        .json()
+                        .await?;
+                Ok((resp, add))
+            })),
+            add,
+        }
+    }
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CollectionPatch {
-    Toggle(i32),
+    Set(Vec<i32>),
     Public(bool),
     Cover(i32),
 }

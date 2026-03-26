@@ -8,7 +8,7 @@ use super::{
 use crate::{
     charts_view::NEED_UPDATE,
     client::{
-        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionPatch, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN,
+        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -1356,7 +1356,10 @@ impl SongScene {
     }
 
     fn matches_ref(&self, r: &ChartRef) -> bool {
-        r.matches((self.local_path.as_deref(), self.info.id))
+        match r {
+            ChartRef::Local(path) => self.local_path.as_ref() == Some(path),
+            ChartRef::Online(id, _) => self.info.id == Some(*id),
+        }
     }
 
     fn to_chart_ref(&self) -> Option<ChartRef> {
@@ -1375,41 +1378,23 @@ impl SongScene {
 
     fn toggle_in(&mut self, uuid: Uuid) {
         let data = get_data();
-        let mut col = data.collection_info(&uuid).as_ref().clone();
-        if col.id.is_some() && self.info.id.is_none() {
-            Dialog::simple(ttl!("favorites-online-only", "charts" => &self.info.name)).show();
+        let col = data.collection_info(&uuid).as_ref().clone();
+        let Some(chart_ref) = self.to_chart_ref() else {
             return;
-        }
-
-        let should_upload = col.id.is_some() && !get_data().config.offline_mode;
-        let index = col.charts.iter().position(|it| self.matches_ref(it));
-        if let Some(index) = index {
-            col.charts.remove(index);
-        } else if let Some(chart) = self.to_chart_ref() {
-            col.charts.push(chart);
-            if !should_upload {
-                show_message(tl!("fav-added")).ok();
+        };
+        let add = col.charts.iter().all(|it| !self.matches_ref(it));
+        match col.update(uuid, &[chart_ref], add) {
+            CollectionUpdate::Unchanged => {}
+            CollectionUpdate::Updated { sync_task, add } => {
+                if let Some(task) = sync_task {
+                    self.toggle_fav_task = Some(task);
+                } else {
+                    FAV_UPDATED.store(true, Ordering::SeqCst);
+                    if add {
+                        show_message(tl!("fav-added")).ok();
+                    }
+                }
             }
-        } else {
-            return;
-        }
-        let col_id = col.id;
-        data.set_collection_info(&uuid, col).unwrap();
-        FAV_UPDATED.store(true, Ordering::SeqCst);
-        if !should_upload {
-            return;
-        }
-
-        if let Some(col_id) = col_id {
-            let id = self.info.id.unwrap();
-            self.toggle_fav_task = Some(Task::new(async move {
-                let resp: Collection = recv_raw(Client::request(Method::PATCH, format!("/collection/{col_id}")).json(&CollectionPatch::Toggle(id)))
-                    .await?
-                    .json()
-                    .await?;
-                let added = resp.charts.iter().any(|it| it.id == id);
-                Ok((resp, added))
-            }));
         }
     }
 

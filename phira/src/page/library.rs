@@ -3,7 +3,7 @@ prpr_l10n::tl_file!("library");
 use super::{CollectionPage, FavoritesPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
-    client::{recv_raw, Chart, ChartRef, Client, Collection, LocalCollection},
+    client::{recv_raw, Chart, ChartRef, Client, Collection, CollectionUpdate, LocalCollection},
     dir, get_data, get_data_mut,
     icons::Icons,
     page::{favorites::FAV_PAGE_RESULT, ChartItem},
@@ -43,6 +43,7 @@ use std::{
     },
 };
 use tap::Tap;
+use uuid::Uuid;
 
 pub static FAV_UPDATED: AtomicBool = AtomicBool::new(false);
 pub static CHOOSE_COVER: AtomicBool = AtomicBool::new(false);
@@ -130,6 +131,11 @@ pub struct LibraryPage {
     multi_operation_options: Vec<&'static str>,
     need_show_multi_operation_menu: bool,
 
+    manage_fav_menu: Popup,
+    manage_fav_menu_options: Vec<(Uuid, bool)>,
+    need_show_manage_fav_menu: bool,
+    manage_fav_task: Option<Task<Result<(Collection, bool)>>>,
+
     multi_select_btn: DRectButton,
     multi_select_menu: Popup,
     need_show_multi_select_menu: bool,
@@ -206,6 +212,11 @@ impl LibraryPage {
             multi_operation_menu: Popup::new().with_size(0.5),
             multi_operation_options: Vec::new(),
             need_show_multi_operation_menu: false,
+
+            manage_fav_menu: Popup::new().with_size(0.5).tap_mut(|it| it.set_auto_dismiss(false)),
+            manage_fav_menu_options: Vec::new(),
+            need_show_manage_fav_menu: false,
+            manage_fav_task: None,
 
             multi_select_btn: DRectButton::new(),
             multi_select_menu: Popup::new()
@@ -392,6 +403,29 @@ impl LibraryPage {
             tl!("order-by", "order" => self.current_order.label()),
             if self.order_rev { tl!("order-desc") } else { tl!("order-asc") }.into(),
         ]);
+    }
+
+    fn get_move_fav_menu_options(&mut self) -> Option<Vec<String>> {
+        let sel = self.tabs.selected().view.multi_select.as_ref()?;
+        if sel.is_empty() {
+            return None;
+        }
+        let data = get_data();
+        let mut options = Vec::new();
+        self.manage_fav_menu_options.clear();
+        for uuid in data.collection_uuids() {
+            let col = data.collection_info(uuid);
+            if !col.is_owned() {
+                continue;
+            }
+            let all_in = sel.iter().all(|chart_ref| {
+                let path = chart_ref.local_path();
+                col.charts.iter().any(|it| it.local_path() == path)
+            });
+            self.manage_fav_menu_options.push((*uuid, all_in));
+            options.push(format!("{} {}", if all_in { '\u{2713}' } else { ' ' }, col.name));
+        }
+        Some(options)
     }
 }
 
@@ -595,7 +629,7 @@ impl Page for LibraryPage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
-        if self.sync_fav_task.is_some() || self.export_task.is_some() || self.multi_create_fav_task.is_some() {
+        if self.sync_fav_task.is_some() || self.export_task.is_some() || self.multi_create_fav_task.is_some() || self.manage_fav_task.is_some() {
             return Ok(true);
         }
         let choose_cover = CHOOSE_COVER.load(Ordering::Relaxed);
@@ -606,6 +640,10 @@ impl Page for LibraryPage {
             }
             if self.order_meta_menu.showing() {
                 self.order_meta_menu.touch(touch, t);
+                return Ok(true);
+            }
+            if self.manage_fav_menu.showing() {
+                self.manage_fav_menu.touch(touch, t);
                 return Ok(true);
             }
             if self.multi_operation_menu.showing() {
@@ -706,7 +744,7 @@ impl Page for LibraryPage {
         }
         if self.tabs.selected_mut().view.multi_select.is_some() {
             if self.multi_operation_btn.touch(touch, t) {
-                let mut options = vec!["multi-export", "multi-create-fav"];
+                let mut options = vec!["multi-export", "multi-create-fav", "multi-manage-fav"];
                 if self.tabs.selected_mut().view.allow_edit {
                     options.push("multi-delete");
                 }
@@ -938,6 +976,7 @@ impl Page for LibraryPage {
             let selected = charts_view.multi_select.as_mut().unwrap();
             match self.multi_operation_options[self.multi_operation_menu.selected()] {
                 "multi-export" => {
+                    self.multi_operation_menu.dismiss(t);
                     let charts = dir::charts()?;
                     let mut paths = Vec::with_capacity(selected.len());
                     let mut non_existent = Vec::new();
@@ -958,9 +997,20 @@ impl Page for LibraryPage {
                     }
                 }
                 "multi-create-fav" => {
+                    self.multi_operation_menu.dismiss(t);
                     request_input("new_fav", InputBox::new());
                 }
+                "multi-manage-fav" => {
+                    if let Some(options) = self.get_move_fav_menu_options() {
+                        self.need_show_manage_fav_menu = true;
+                        self.manage_fav_menu.set_options(options);
+                        self.multi_operation_menu.set_selected(usize::MAX);
+                    } else {
+                        // Do nothing
+                    }
+                }
                 "multi-delete" => {
+                    self.multi_operation_menu.dismiss(t);
                     confirm_dialog(ttl!("del-confirm"), tl!("multi-delete-confirm", "count" => selected.len()), self.delete_multi.clone());
                 }
                 _ => {}
@@ -987,6 +1037,38 @@ impl Page for LibraryPage {
                     }
                 }
                 _ => {}
+            }
+        }
+        if self.manage_fav_menu.changed() {
+            let (uuid, all_in_fav) = self.manage_fav_menu_options[self.manage_fav_menu.selected()];
+            self.manage_fav_menu.set_selected(usize::MAX);
+            let data = get_data();
+            let col = data.collection_info(&uuid).as_ref().clone();
+            match col.update(uuid, self.tabs.selected().view.multi_select.as_deref().unwrap(), !all_in_fav) {
+                CollectionUpdate::Unchanged => {}
+                CollectionUpdate::Updated { sync_task, add } => {
+                    if let Some(task) = sync_task {
+                        self.manage_fav_task = Some(task);
+                    } else if add {
+                        show_message(tl!("multi-added-to-fav")).ok();
+                    } else {
+                        show_message(tl!("multi-removed-from-fav")).ok();
+                    }
+                }
+            }
+
+            let _ = save_data();
+
+            if self.current_fav_index.is_some_and(|it| data.collection_uuids()[it] == uuid) {
+                // Move out of current fav, dismiss menu and update list
+                self.manage_fav_menu.dismiss(s.t);
+                self.multi_operation_menu.dismiss(s.t);
+                self.tabs.selected_mut().view.multi_select = None;
+                self.sync_local(s);
+            } else {
+                // Otherwise, just update options
+                let options = self.get_move_fav_menu_options().unwrap();
+                self.manage_fav_menu.set_options(options);
             }
         }
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
@@ -1133,6 +1215,29 @@ impl Page for LibraryPage {
                 }
             }
         }
+        if let Some(task) = &mut self.manage_fav_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err);
+                    }
+                    Ok((col, added)) => {
+                        let data = get_data();
+                        if let Some(uuid) = data.collection_uuids().iter().find(|it| data.collection_info(it).id == Some(col.id)) {
+                            let uuid = *uuid;
+                            let local = data.collection_info(&uuid);
+                            data.set_collection_info(&uuid, local.merge(&col))?;
+                        }
+                        if added {
+                            show_message(tl!("multi-added-to-fav")).ok();
+                        } else {
+                            show_message(tl!("multi-removed-from-fav")).ok();
+                        }
+                    }
+                }
+                self.manage_fav_task = None;
+            }
+        }
 
         Ok(())
     }
@@ -1173,7 +1278,8 @@ impl Page for LibraryPage {
                             .set_auto_adjust(Some(ui.screen_rect().nonuniform_feather(-0.03, -0.05)));
                         self.multi_operation_menu.set_bottom(true);
                         self.multi_operation_menu.set_selected(usize::MAX);
-                        self.multi_operation_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.35, 0.3));
+                        self.multi_operation_menu.set_auto_dismiss(false);
+                        self.multi_operation_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.35, 0.4));
                     }
 
                     let text = tl!("multi-select-status", "count" => selected.len());
@@ -1332,6 +1438,16 @@ impl Page for LibraryPage {
         }
         self.multi_select_menu.render(ui, t, 1.);
         self.multi_operation_menu.render(ui, t, 1.);
+        if self.need_show_manage_fav_menu {
+            self.need_show_manage_fav_menu = false;
+            self.manage_fav_menu.set_selected(usize::MAX);
+            let mut r = self.multi_operation_menu.rect();
+            r.w = 0.3;
+            r.x -= r.w + 0.02;
+            r.h = 0.4;
+            self.manage_fav_menu.show(ui, t, r);
+        }
+        self.manage_fav_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
         self.rating.render(ui, t);
         Ok(())
@@ -1348,7 +1464,7 @@ impl Page for LibraryPage {
             let total = self.export_total;
             ui.full_loading(tl!("multi-exporting", "current" => current, "total" => total), t);
         }
-        if self.multi_create_fav_task.is_some() {
+        if self.multi_create_fav_task.is_some() || self.manage_fav_task.is_some() {
             ui.full_loading_simple(t);
         }
         Ok(())

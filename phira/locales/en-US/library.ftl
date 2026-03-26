@@ -28,6 +28,7 @@ fav-sync-failed = Failed to sync favorites.
 multi-select-status = { $count } selected
 multi-export = Export
 multi-create-fav = Create Favorites
+multi-manage-fav = Manage Favorites
 multi-delete = Delete
 multi-delete-confirm = Are you sure you want to delete { $count } charts? This action cannot be undone.
 multi-deleted = Deleted
@@ -36,6 +37,9 @@ multi-export-title = Select export location
 multi-export-no-file = Please download all charts before exporting. Missing: { $charts }
 multi-exporting = Exporting ({ $current } / { $total })
 multi-exported = Exported
+
+multi-added-to-fav = Added to favorites
+multi-removed-from-fav = Removed from favorites
 
 multi-select-all = Select All
 multi-select-invert = Invert Selection
