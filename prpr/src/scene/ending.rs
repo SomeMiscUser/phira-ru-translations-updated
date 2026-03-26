@@ -409,7 +409,7 @@ impl Scene for EndingScene {
                     .color(semi_white(0.6))
                     .size(s)
                     .draw_using(&BOLD_FONT);
-                let r = if self.detail_mode {
+                let r = if self.detail_mode && id != 3 {
                     let r = ui
                         .text(format!("-{}", res.early_kind[id]))
                         .pos(x + 0.03, y)
