@@ -957,7 +957,7 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+                    #[cfg(closed)]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode
                             && !self.res.config.mods.intersects(Mods::UNRATED)
