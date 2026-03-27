@@ -45,9 +45,9 @@ use tracing::{debug, warn};
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
 #[rustfmt::skip]
-#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+#[cfg(closed)]
 mod inner;
-#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+#[cfg(closed)]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
@@ -1077,13 +1077,13 @@ impl Scene for GameScene {
             }
         }
         if Self::interactive(res, &self.state) {
-            if is_key_pressed(KeyCode::Left) {
+            if is_key_pressed(KeyCode::Left) && res.config.use_keyboard {
                 res.time -= 1.;
                 let dst = (self.music.position() - 1.).max(0.);
                 self.music.seek_to(dst)?;
                 tm.seek_to(dst as f64);
             }
-            if is_key_pressed(KeyCode::Right) {
+            if is_key_pressed(KeyCode::Right) && res.config.use_keyboard {
                 res.time += 5.;
                 let dst = (self.music.position() + 5.).min(res.track_length);
                 self.music.seek_to(dst)?;

@@ -16,8 +16,7 @@ pub mod ui;
 #[cfg(feature = "log")]
 pub mod log;
 
-#[rustfmt::skip]
-#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+#[cfg(closed)]
 pub mod inner;
 
 pub use scene::Main;
