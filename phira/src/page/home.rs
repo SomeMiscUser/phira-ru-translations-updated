@@ -163,7 +163,11 @@ impl HomePage {
             check_bold_font_update_task: {
                 let cksum = BOLD_FONT_CKSUM.with(|it| it.borrow().clone());
                 Some(Task::new(async move {
-                    let resp = Client::get("/font-bold").query(&[("cksum", cksum)]).send().await?;
+                    let resp = Client::get("/font-bold")
+                        .query(&[("cksum", cksum)])
+                        .query(&[("new_bold_font", "true")])
+                        .send()
+                        .await?;
                     if resp.status() == StatusCode::NOT_MODIFIED {
                         info!("bold font not modified");
                         return Ok(None);
