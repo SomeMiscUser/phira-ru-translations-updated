@@ -1429,7 +1429,11 @@ impl Scene for SongScene {
                 if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
                     self.rate_dialog.enter(tm.real_time() as _);
                 }
-                self.record.as_mut().map(|it| it.update(rec.as_ref()));
+                if let Some(record) = &mut self.record {
+                    record.update(&rec);
+                } else {
+                    self.record = Some(*rec);
+                }
                 self.load_ldb();
                 return Ok(());
             }
