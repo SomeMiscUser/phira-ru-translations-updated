@@ -21,15 +21,15 @@ use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::{request_input, show_error, show_message, take_input},
     task::Task,
-    ui::{button_hit, DRectButton, Dialog, RectButton, Scroll, Ui},
+    ui::{button_hit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui},
 };
 use regex::Regex;
 use reqwest::Method;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cell::RefCell,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -38,6 +38,7 @@ use std::{
 
 thread_local! {
     pub static FAV_PAGE_RESULT: RefCell<Option<Option<usize>>> = const { RefCell::new(None) };
+    static LIKE_CACHE: RefCell<HashMap<i32, (bool, DateTime<Utc>)>> = RefCell::default();
 }
 
 const CARD_WIDTH: f32 = 0.41;
@@ -113,6 +114,11 @@ pub struct FavoritesPage {
     import_task: Option<Task<Result<Collection>>>,
     batch_import_task: Option<Task<Result<Vec<Chart>>>>,
     set_cover_task: Option<Task<Result<Result<Collection, File>>>>,
+
+    liked: bool,
+    like_btn: RectButton,
+    fetch_like_task: Option<Task<Result<bool>>>,
+    like_task: Option<Task<Result<()>>>,
 }
 
 impl FavoritesPage {
@@ -167,6 +173,11 @@ impl FavoritesPage {
             import_task: None,
             batch_import_task: None,
             set_cover_task: None,
+
+            liked: false,
+            like_btn: RectButton::new(),
+            fetch_like_task: None,
+            like_task: None,
         };
         page.rebuild_folders();
         page
@@ -259,6 +270,7 @@ impl FavoritesPage {
             || self.import_task.is_some()
             || self.batch_import_task.is_some()
             || self.set_cover_task.is_some()
+            || self.like_task.is_some()
     }
 
     fn collect_chart_ids(col: &LocalCollection, allow_local: bool) -> Option<Vec<i32>> {
@@ -363,11 +375,50 @@ impl FavoritesPage {
             self.sync_task = Some(task);
         }
     }
+
+    fn on_active_update(&mut self) {
+        let Some(folder) = self.active_folder else { return };
+        let data = get_data();
+        if data.config.offline_mode {
+            return;
+        }
+        let col = data.collection_by_index(folder);
+        let Some(id) = col.id else { return };
+
+        let cached = LIKE_CACHE.with_borrow_mut(|cache| {
+            if let Some((like, updated)) = cache.get_mut(&id) {
+                if *updated + chrono::Duration::minutes(3) < Utc::now() {
+                    cache.remove(&id);
+                } else {
+                    self.liked = *like;
+                    return true;
+                }
+            }
+            false
+        });
+        if cached {
+            return;
+        }
+
+        self.fetch_like_task = Some(Task::new(async move {
+            #[derive(Deserialize)]
+            struct Resp {
+                like: bool,
+            }
+            let resp: Resp = recv_raw(Client::get(format!("/collection/{id}/like"))).await?.json().await?;
+            Ok(resp.like)
+        }));
+    }
 }
 
 impl Page for FavoritesPage {
     fn label(&self) -> Cow<'static, str> {
         ttl!("favorites")
+    }
+
+    fn enter(&mut self, _s: &mut SharedState) -> Result<()> {
+        self.on_active_update();
+        Ok(())
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
@@ -432,10 +483,10 @@ impl Page for FavoritesPage {
         }
 
         if let Some(index) = self.active_folder {
-            if self.edit_btn.touch(touch) {
+            let data = get_data();
+            let col = data.collection_by_index(index);
+            if self.edit_btn.touch(touch) && col.is_owned() {
                 button_hit();
-                let data = get_data();
-                let col = data.collection_by_index(index);
                 let mut options = Vec::new();
                 if col.is_owned() {
                     options.push("rename");
@@ -451,8 +502,6 @@ impl Page for FavoritesPage {
             }
             if self.operations_menu_btn.touch(touch) {
                 button_hit();
-                let data = get_data();
-                let col = data.collection_by_index(index);
                 let is_default = col.is_default;
                 let mut options = Vec::new();
                 if !is_default && col.is_owned() {
@@ -474,18 +523,20 @@ impl Page for FavoritesPage {
             }
             if self.cloud_btn.touch(touch) {
                 button_hit();
-                let data = get_data();
-                let col = data.collection_by_index(index);
                 let mut options = Vec::new();
                 if col.id.is_some() {
-                    options.push("sync-to-cloud");
-                    options.push("sync-from-cloud");
-                    if col.public {
-                        options.push("make-private");
-                    } else {
-                        options.push("make-public");
+                    if col.is_owned() {
+                        options.push("sync-to-cloud");
                     }
-                    options.push("delete-from-cloud");
+                    options.push("sync-from-cloud");
+                    if col.is_owned() {
+                        if col.public {
+                            options.push("make-private");
+                        } else {
+                            options.push("make-public");
+                        }
+                        options.push("delete-from-cloud");
+                    }
                 } else {
                     options.push("upload-to-cloud");
                 }
@@ -500,6 +551,19 @@ impl Page for FavoritesPage {
                 self.side_enter_time = rt;
                 return Ok(true);
             }
+            if col.id.is_some() && self.fetch_like_task.is_none() && self.like_btn.touch(touch) {
+                button_hit();
+                let liked = self.liked;
+                self.like_task = Some(Task::new(async move {
+                    #[derive(Serialize)]
+                    struct Req {
+                        like: bool,
+                    }
+                    recv_raw(Client::post(format!("/collection/{}/like", col.id.unwrap()), &Req { like: !liked })).await?;
+                    Ok(())
+                }));
+                return Ok(true);
+            }
         }
 
         // 编辑按钮检测 || Edit button detection
@@ -511,6 +575,7 @@ impl Page for FavoritesPage {
                     self.next_page = Some(NextPage::Pop);
                 } else {
                     self.active_folder = folder.index;
+                    self.on_active_update();
                 }
                 return Ok(true);
             }
@@ -953,6 +1018,50 @@ impl Page for FavoritesPage {
                 self.set_cover_task = None;
             }
         }
+        if let Some(task) = &mut self.fetch_like_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(like) => {
+                        if let Some(index) = self.active_folder {
+                            let data = get_data();
+                            let col = data.collection_by_index(index);
+                            if let Some(id) = col.id {
+                                LIKE_CACHE.with_borrow_mut(|cache| {
+                                    cache.insert(id, (like, Utc::now()));
+                                });
+                            }
+                        }
+                        self.liked = like;
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.fetch_like_task = None;
+            }
+        }
+        if let Some(task) = &mut self.like_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(()) => {
+                        self.liked = !self.liked;
+                        if let Some(index) = self.active_folder {
+                            let data = get_data();
+                            let col = data.collection_by_index(index);
+                            if let Some(id) = col.id {
+                                LIKE_CACHE.with_borrow_mut(|cache| {
+                                    cache.insert(id, (self.liked, Utc::now()));
+                                });
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.like_task = None;
+            }
+        }
 
         Ok(())
     }
@@ -981,17 +1090,21 @@ impl Page for FavoritesPage {
                         self.operations_menu.set_bottom(true);
                         self.operations_menu.set_selected(usize::MAX);
                         let d = 0.28;
-                        self.operations_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                        let h = self.operations_options.len().min(5) as f32 * 0.1;
+                        self.operations_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                     }
-                    ui.dx(-r.w - 0.03);
-                    ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, WHITE));
-                    self.edit_btn.set(ui, r);
-                    if self.need_show_edit_menu {
-                        self.need_show_edit_menu = false;
-                        self.edit_menu.set_bottom(true);
-                        self.edit_menu.set_selected(usize::MAX);
-                        let d = 0.28;
-                        self.edit_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    if get_data().collection_by_index(index).is_owned() {
+                        ui.dx(-r.w - 0.03);
+                        ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, WHITE));
+                        self.edit_btn.set(ui, r);
+                        if self.need_show_edit_menu {
+                            self.need_show_edit_menu = false;
+                            self.edit_menu.set_bottom(true);
+                            self.edit_menu.set_selected(usize::MAX);
+                            let d = 0.28;
+                            let h = self.edit_options.len().min(5) as f32 * 0.1;
+                            self.edit_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
+                        }
                     }
                     ui.dx(-r.w - 0.03);
                     ui.fill_rect(
@@ -1012,11 +1125,33 @@ impl Page for FavoritesPage {
                         self.cloud_menu.set_bottom(true);
                         self.cloud_menu.set_selected(usize::MAX);
                         let d = 0.28;
-                        self.cloud_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                        let h = self.cloud_options.len().min(5) as f32 * 0.1;
+                        self.cloud_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                     }
                     ui.dx(-r.w - 0.03);
                     ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
                     self.info_btn.set(ui, r);
+
+                    ui.dx(-r.w - 0.03);
+                    if self.fetch_like_task.is_some() {
+                        ui.fill_rect(r, (*self.icons.heart_outline, r, ScaleType::Fit, semi_white(0.4)));
+                        let ct = r.center();
+                        ui.loading(
+                            ct.x,
+                            ct.y,
+                            t,
+                            WHITE,
+                            LoadingParams {
+                                radius: r.w * 0.35,
+                                width: 0.008,
+                                ..Default::default()
+                            },
+                        );
+                    } else {
+                        let icon = if self.liked { &self.icons.heart } else { &self.icons.heart_outline };
+                        ui.fill_rect(r, (**icon, r, ScaleType::Fit, if self.liked { ORANGE } else { WHITE }));
+                        self.like_btn.set(ui, r);
+                    }
                 });
             }
 

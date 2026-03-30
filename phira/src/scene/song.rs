@@ -447,7 +447,7 @@ impl SongScene {
 
             fetch_best_task,
 
-            menu: Popup::new().with_size(0.5),
+            menu: Popup::new(),
             menu_btn: RectButton::new(),
             need_show_menu: false,
             should_delete: Arc::new(AtomicBool::default()),
@@ -2551,7 +2551,8 @@ impl Scene for SongScene {
                     self.menu.set_bottom(true);
                     self.menu.set_selected(usize::MAX);
                     let d = 0.28;
-                    self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    let h = self.menu_options.len().min(5) as f32 * 0.1;
+                    self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                 }
                 ui.dx(-r.w - 0.03);
                 ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
@@ -2569,7 +2570,8 @@ impl Scene for SongScene {
                         self.fav_menu.set_bottom(true);
                         self.fav_menu.set_selected(usize::MAX);
                         let d = 0.28;
-                        self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                        let h = self.fav_menu_options.len().min(5) as f32 * 0.1;
+                        self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                     }
                     ui.dx(-r.w - 0.03);
 
