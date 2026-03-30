@@ -259,6 +259,7 @@ impl JudgeInner {
     }
 }
 
+#[rustfmt::skip]
 #[cfg(closed)]
 pub mod inner;
 #[cfg(closed)]
