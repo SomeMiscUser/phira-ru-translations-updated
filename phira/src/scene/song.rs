@@ -13,14 +13,17 @@ use crate::{
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{local_illustration, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader, FAV_UPDATED},
+    page::{
+        local_illustration, request_export, resolve_export, take_export, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader,
+        FAV_UPDATED,
+    },
     popup::Popup,
     rate::RateDialog,
     save_data,
     tags::TagsDialog,
 };
 use ::rand::{thread_rng, Rng};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Error, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use core::f32;
@@ -47,6 +50,7 @@ use prpr::{
     ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, Ui, UI_AUDIO},
 };
 use reqwest::Method;
+use sanitize_filename::sanitize;
 use sasa::{AudioClip, Frame, Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -56,11 +60,11 @@ use std::{
     borrow::Cow,
     collections::{hash_map, HashMap, VecDeque},
     fs::File,
-    io::{Cursor, Write},
+    io::{BufWriter, Cursor, Seek, Write},
     path::Path,
     sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
-        Arc, Mutex, Weak,
+        mpsc, Arc, Mutex, Weak,
     },
     thread_local,
 };
@@ -350,6 +354,8 @@ pub struct SongScene {
     toggle_fav_task: Option<Task<Result<(Collection, bool)>>>,
 
     confirm_cancel_edit: Arc<AtomicBool>,
+
+    export_task: Option<mpsc::Receiver<Result<()>>>,
 }
 
 impl SongScene {
@@ -441,7 +447,7 @@ impl SongScene {
 
             fetch_best_task,
 
-            menu: Popup::new(),
+            menu: Popup::new().with_size(0.5),
             menu_btn: RectButton::new(),
             need_show_menu: false,
             should_delete: Arc::new(AtomicBool::default()),
@@ -534,6 +540,8 @@ impl SongScene {
             toggle_fav_task: None,
 
             confirm_cancel_edit: Arc::default(),
+
+            export_task: None,
         }
     }
 
@@ -752,6 +760,9 @@ impl SongScene {
             })
         {
             self.menu_options.push("review-del");
+        }
+        if self.local_path.as_ref().is_some_and(|it| !it.starts_with(':')) {
+            self.menu_options.push("export");
         }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(*it).into_owned()).collect());
     }
@@ -1519,6 +1530,7 @@ impl Scene for SongScene {
             || self.overwrite_task.is_some()
             || self.update_cksum_task.is_some()
             || self.toggle_fav_task.is_some()
+            || self.export_task.is_some()
         {
             return Ok(true);
         }
@@ -1901,7 +1913,52 @@ impl Scene for SongScene {
                 "stabilize-deny" => {
                     request_input("stabilize-deny-reason", InputBox::new().mode(InputMode::Multiline));
                 }
+                "export" => {
+                    request_export(format!("{}.zip", sanitize(&self.info.name)));
+                }
                 _ => {}
+            }
+        }
+        if let Some(config) = take_export() {
+            fn export_inner(path: String, output: File) -> Result<()> {
+                let charts = dir::charts()?;
+                compress_folder(Path::new(&format!("{charts}/{path}")), &mut BufWriter::new(output))?;
+                Ok(())
+            }
+
+            match config {
+                Err(err) => show_error(err.into()),
+                Ok(config) => {
+                    let path = self.local_path.clone().unwrap();
+                    let (tx, rx) = mpsc::sync_channel(1);
+                    std::thread::spawn(move || {
+                        let result = export_inner(path, config.file);
+                        if result.is_err() {
+                            if let Err(err) = (config.deleter)() {
+                                warn!("failed to delete export file: {:?}", err);
+                            }
+                        }
+                        let _ = tx.send(result);
+                    });
+                    self.export_task = Some(rx);
+                }
+            }
+        }
+        if let Some(rx) = &mut self.export_task {
+            match rx.try_recv() {
+                Ok(Err(err)) => {
+                    show_error(err);
+                    self.export_task = None;
+                }
+                Ok(Ok(())) => {
+                    resolve_export();
+                    self.export_task = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    show_error(Error::msg("Export thread panicked"));
+                    self.export_task = None;
+                }
             }
         }
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
@@ -2092,7 +2149,8 @@ impl Scene for SongScene {
             self.upload_task = Some(Task::new(async move {
                 let root = format!("{}/{path}", dir::charts()?);
                 let root = Path::new(&root);
-                let chart_bytes = compress_folder(root)?;
+                let mut chart_bytes = Vec::new();
+                compress_folder(root, &mut Cursor::new(&mut chart_bytes))?;
                 let file = Client::upload_file("chart.zip", chart_bytes)
                     .await
                     .with_context(|| tl!("upload-chart-failed"))?;
@@ -2574,6 +2632,9 @@ impl Scene for SongScene {
         if self.review_task.is_some() {
             ui.full_loading(tl!("review-doing"), t);
         }
+        if self.export_task.is_some() {
+            ui.full_loading(tl!("exporting"), t);
+        }
         if self.edit_tags_task.is_some()
             || self.rate_task.is_some()
             || self.overwrite_task.is_some()
@@ -2620,9 +2681,8 @@ impl Scene for SongScene {
     }
 }
 
-pub fn compress_folder(src: &Path) -> Result<Vec<u8>> {
-    let mut bytes = Vec::new();
-    let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
+pub fn compress_folder<W: Write + Seek>(src: &Path, dst: &mut W) -> Result<()> {
+    let mut zip = ZipWriter::new(dst);
     let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
         .unix_permissions(0o755);
@@ -2639,5 +2699,5 @@ pub fn compress_folder(src: &Path) -> Result<Vec<u8>> {
         }
     }
     zip.finish()?;
-    Ok(bytes)
+    Ok(())
 }

@@ -33,7 +33,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     fs::File,
-    io::{self, BufWriter, Write},
+    io::{self, BufWriter, Cursor, Write},
     mem,
     ops::Deref,
     path::{Path, PathBuf},
@@ -429,9 +429,9 @@ impl LibraryPage {
     }
 }
 
-struct ExportConfig {
-    file: File,
-    deleter: Box<dyn FnOnce() -> io::Result<()> + Send>,
+pub struct ExportConfig {
+    pub file: File,
+    pub deleter: Box<dyn FnOnce() -> io::Result<()> + Send>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -507,8 +507,7 @@ fn present_export_picker(path: String) {
     }
 }
 
-fn request_export() {
-    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+pub fn request_export(suggested_name: String) {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
@@ -535,7 +534,10 @@ fn request_export() {
                 let delete_path = output_path.clone();
                 ExportConfig {
                     file,
-                    deleter: Box::new(move || std::fs::remove_file(delete_path)),
+                    deleter: Box::new(move || {
+                        *EXPORT_PICKER_PATH.lock().unwrap() = None;
+                        std::fs::remove_file(delete_path)
+                    }),
                 }
             });
             if config.is_ok() {
@@ -554,6 +556,22 @@ fn request_export() {
             }
         }
     }
+}
+
+pub fn take_export() -> Option<io::Result<ExportConfig>> {
+    EXPORT_CONFIG.lock().unwrap().take()
+}
+pub fn resolve_export() {
+    #[cfg(target_os = "ios")]
+    {
+        if let Some(path) = EXPORT_PICKER_PATH.lock().unwrap().clone() {
+            present_export_picker(path);
+        } else {
+            show_message(tl!("exported")).ok();
+        }
+    }
+    #[cfg(not(target_os = "ios"))]
+    show_message(tl!("exported")).ok();
 }
 
 #[cfg(target_os = "android")]
@@ -993,7 +1011,7 @@ impl Page for LibraryPage {
                         Dialog::simple(tl!("multi-export-no-file", "charts" => non_existent.join(", "))).show();
                     } else {
                         self.export_paths = Some(paths);
-                        request_export();
+                        request_export(format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S")));
                     }
                 }
                 "multi-create-fav" => {
@@ -1141,7 +1159,7 @@ impl Page for LibraryPage {
                 }
             }
         }
-        if let Some(config) = EXPORT_CONFIG.lock().unwrap().take() {
+        if let Some(config) = take_export() {
             fn export_inner(paths: Vec<String>, output: File, progress: Arc<AtomicU32>) -> Result<()> {
                 let charts = dir::charts()?;
                 let mut zip = zip::ZipWriter::new(BufWriter::new(output));
@@ -1150,7 +1168,8 @@ impl Page for LibraryPage {
                     .unix_permissions(0o755);
                 for (i, name) in paths.iter().enumerate() {
                     zip.start_file(format!("{name}.zip"), options)?;
-                    let chart_bytes = compress_folder(Path::new(&format!("{charts}/{name}")))?;
+                    let mut chart_bytes = Vec::new();
+                    compress_folder(Path::new(&format!("{charts}/{name}")), &mut Cursor::new(&mut chart_bytes))?;
                     zip.write_all(&chart_bytes)?;
                     progress.store(i as u32 + 1, Ordering::Relaxed);
                 }
@@ -1195,16 +1214,7 @@ impl Page for LibraryPage {
                     self.export_task = None;
                 }
                 Ok(Ok(())) => {
-                    #[cfg(target_os = "ios")]
-                    {
-                        if let Some(path) = EXPORT_PICKER_PATH.lock().unwrap().clone() {
-                            present_export_picker(path);
-                        } else {
-                            show_message(tl!("multi-exported")).ok();
-                        }
-                    }
-                    #[cfg(not(target_os = "ios"))]
-                    show_message(tl!("multi-exported")).ok();
+                    resolve_export();
                     self.tabs.selected_mut().view.multi_select = None;
                     self.export_task = None;
                 }
