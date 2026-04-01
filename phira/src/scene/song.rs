@@ -351,6 +351,7 @@ pub struct SongScene {
     update_cksum_task: Option<Task<Result<bool>>>,
     chart_type: ChartType,
 
+    is_fav: Option<bool>,
     toggle_fav_task: Option<Task<Result<(Collection, bool)>>>,
 
     confirm_cancel_edit: Arc<AtomicBool>,
@@ -537,6 +538,7 @@ impl SongScene {
             update_cksum_task: None,
             chart_type: chart.chart_type,
 
+            is_fav: None,
             toggle_fav_task: None,
 
             confirm_cancel_edit: Arc::default(),
@@ -1369,40 +1371,22 @@ impl SongScene {
         Ok(())
     }
 
-    fn matches_ref(&self, r: &ChartRef) -> bool {
-        match r {
-            ChartRef::Local(path) => self.local_path.as_ref() == Some(path),
-            ChartRef::Online(id, _) => self.info.id == Some(*id),
-        }
-    }
-
-    fn to_chart_ref(&self) -> Option<ChartRef> {
-        Some(if let Some(local) = &self.local_path {
-            ChartRef::Local(local.clone())
-        } else {
-            match self.entity.clone() {
-                Some(entity) => entity.into(),
-                None => {
-                    show_message(tl!("still-loading")).error();
-                    return None;
-                }
-            }
-        })
+    fn to_chart_ref(&self) -> ChartRef {
+        ChartRef::new_bare(self.info.id, self.local_path.as_deref())
     }
 
     fn toggle_in(&mut self, uuid: Uuid) {
         let data = get_data();
         let col = data.collection_info(&uuid).as_ref().clone();
-        let Some(chart_ref) = self.to_chart_ref() else {
-            return;
-        };
-        let add = col.charts.iter().all(|it| !self.matches_ref(it));
+        let chart_ref = self.to_chart_ref();
+        let add = col.charts.iter().all(|it| it != &chart_ref);
         match col.update(uuid, &[chart_ref], add) {
             CollectionUpdate::Unchanged => {}
             CollectionUpdate::Updated { sync_task, add } => {
                 if let Some(task) = sync_task {
                     self.toggle_fav_task = Some(task);
                 } else {
+                    self.is_fav = None;
                     FAV_UPDATED.store(true, Ordering::SeqCst);
                     if add {
                         show_message(tl!("fav-added")).ok();
@@ -1418,13 +1402,14 @@ impl SongScene {
         let data = get_data();
         let mut options = Vec::new();
         self.fav_menu_options.clear();
+        let chart_ref = self.to_chart_ref();
         for uuid in data.collection_uuids() {
             let col = data.collection_info(uuid);
             if !col.is_owned() {
                 continue;
             }
             self.fav_menu_options.push(*uuid);
-            let contains = col.charts.iter().any(|it| self.matches_ref(it));
+            let contains = col.charts.iter().any(|it| it == &chart_ref);
             options.push(format!("{} {}", if contains { '\u{2713}' } else { ' ' }, col.name));
         }
         options
@@ -2426,6 +2411,7 @@ impl Scene for SongScene {
                             show_message(tl!("fav-added")).ok();
                         }
                         FAV_UPDATED.store(true, Ordering::SeqCst);
+                        self.is_fav = None;
                     }
                 }
                 self.toggle_fav_task = None;
@@ -2561,7 +2547,15 @@ impl Scene for SongScene {
 
                 if self.local_path.as_ref().is_none_or(|it| !it.starts_with(':')) {
                     // 收藏按钮 || Favorites button
-                    let is_fav = get_data().collections().any(|col| col.charts.iter().any(|it| self.matches_ref(it)));
+                    // TODO cache
+                    let is_fav = if let Some(fav) = self.is_fav {
+                        fav
+                    } else {
+                        let chart_ref = self.to_chart_ref();
+                        let fav = get_data().collections().any(|col| col.charts.iter().any(|it| it == &chart_ref));
+                        self.is_fav = Some(fav);
+                        fav
+                    };
                     let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
                     ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
                     self.fav_btn.set(ui, r);

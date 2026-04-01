@@ -346,7 +346,7 @@ impl LibraryPage {
             if let Some(search_id) = search_by_id {
                 chart.info.id == Some(search_id)
             } else {
-                chart.info.name.contains(&self.search_str)
+                chart.info.name.to_ascii_lowercase().contains(&self.search_str.to_ascii_lowercase())
             }
         };
 
@@ -354,18 +354,23 @@ impl LibraryPage {
         if list.ty == ChartListType::Local {
             let mut charts = Vec::new();
             if let Some(fav_index) = self.current_fav_index {
+                let local_chart_map: HashMap<&str, &ChartItem> = charts_local.iter().map(|it| (it.local_path.as_deref().unwrap(), *it)).collect();
                 charts.extend(get_data().collection_by_index(fav_index).charts.iter().filter_map(|it| {
-                    match it {
-                        ChartRef::Online(_, chart) => {
-                            let chart = chart.as_ref().unwrap();
-                            search_by_id
-                                .map_or_else(|| chart.name.contains(&self.search_str), |search_id| chart.id == search_id)
-                                .then(|| ChartDisplayItem::from_remote(chart))
-                        }
-                        ChartRef::Local(path) => charts_local
-                            .iter()
-                            .find(|it| it.local_path.as_ref().is_some_and(|its_path| its_path == path) && local_matcher(it))
-                            .map(|it| ChartDisplayItem::new(Some((*it).clone()), None)),
+                    if let Some(item) = local_chart_map.get(&*it.path) {
+                        local_matcher(item).then(|| ChartDisplayItem::new(Some((*item).clone()), None))
+                    } else if let Some(chart) = it.info.as_ref() {
+                        search_by_id
+                            .map_or_else(
+                                || chart.name.to_ascii_lowercase().contains(&self.search_str.to_ascii_lowercase()),
+                                |search_id| chart.id == search_id,
+                            )
+                            .then(|| ChartDisplayItem::from_remote(chart.as_ref()))
+                    } else if let Some(local_path) = it.find_local_path().unwrap() {
+                        let item = local_chart_map.get(&*local_path).unwrap();
+                        local_matcher(item).then(|| ChartDisplayItem::new(Some((*item).clone()), None))
+                    } else {
+                        warn!("No info found for chart ref {it:?}");
+                        None
                     }
                 }))
             } else {
@@ -418,10 +423,8 @@ impl LibraryPage {
             if !col.is_owned() {
                 continue;
             }
-            let all_in = sel.iter().all(|chart_ref| {
-                let path = chart_ref.local_path();
-                col.charts.iter().any(|it| it.local_path() == path)
-            });
+            let paths = col.charts.iter().collect::<HashSet<_>>();
+            let all_in = sel.iter().all(|chart_ref| paths.contains(chart_ref));
             self.manage_fav_menu_options.push((*uuid, all_in));
             options.push(format!("{} {}", if all_in { '\u{2713}' } else { ' ' }, col.name));
         }
@@ -898,7 +901,7 @@ impl Page for LibraryPage {
                         self.multi_create_fav_task = Some(Task::new(async move {
                             let mut ids_str = String::new();
                             for chart in &selected {
-                                if let ChartRef::Online(id, None) = chart {
+                                if let Some(id) = chart.id() {
                                     ids_str.push_str(&id.to_string());
                                     ids_str.push(',');
                                 }
@@ -911,10 +914,8 @@ impl Page for LibraryPage {
                                     id_to_chart.insert(chart.id, Box::new(chart));
                                 }
                                 for chart in &mut selected {
-                                    if let ChartRef::Online(id, chart_info) = chart {
-                                        if chart_info.is_none() {
-                                            *chart_info = Some(id_to_chart.get(id).cloned().unwrap());
-                                        }
+                                    if let Some(id) = chart.id() {
+                                        chart.info = Some(id_to_chart.get(&id).cloned().unwrap());
                                     }
                                 }
                             }
@@ -954,13 +955,14 @@ impl Page for LibraryPage {
             let data = get_data_mut();
             let mut local_paths = HashSet::new();
             for chart in &selected {
-                let path = chart.local_path();
-                match std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?)) {
-                    Ok(_) => {}
-                    Err(err) if err.kind() == io::ErrorKind::NotFound => {}
-                    Err(err) => return Err(err.into()),
+                if let Some(path) = chart.find_local_path()? {
+                    match std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?)) {
+                        Ok(_) => {}
+                        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+                        Err(err) => return Err(err.into()),
+                    }
+                    local_paths.insert(path);
                 }
-                local_paths.insert(path);
             }
             data.charts.retain(|it| !local_paths.contains(it.local_path.as_str()));
             let _ = save_data();
@@ -999,12 +1001,19 @@ impl Page for LibraryPage {
                     let mut paths = Vec::with_capacity(selected.len());
                     let mut non_existent = Vec::new();
                     for chart in selected {
-                        let path: PathBuf = format!("{charts}/{}", chart.local_path()).into();
+                        match chart.find_local_path()? {
+                            Some(path) => paths.push(path.into_owned()),
+                            None => {
+                                let mut charts = charts_view.charts.as_ref().unwrap().iter().filter_map(|it| it.chart.as_ref());
+                                non_existent.push(charts.find(|it| &it.to_ref() == chart).unwrap().info.name.clone());
+                            }
+                        }
+                        let path: PathBuf = format!("{charts}/{}", chart.path).into();
                         if !path.exists() {
                             let mut charts = charts_view.charts.as_ref().unwrap().iter().filter_map(|it| it.chart.as_ref());
                             non_existent.push(charts.find(|it| &it.to_ref() == chart).unwrap().info.name.clone());
                         } else {
-                            paths.push(chart.local_path().into_owned());
+                            paths.push(chart.path.clone());
                         }
                     }
                     if !non_existent.is_empty() {

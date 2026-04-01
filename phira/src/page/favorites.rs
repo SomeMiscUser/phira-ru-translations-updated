@@ -2,9 +2,7 @@ prpr_l10n::tl_file!("favorites");
 
 use super::{Illustration, NextPage, Page, SharedState};
 use crate::{
-    client::{
-        recv_raw, Chart, ChartRef, Client, Collection, CollectionContent, CollectionCover, CollectionPatch, File, LocalCollection, Ptr, UserManager,
-    },
+    client::{recv_raw, Chart, Client, Collection, CollectionContent, CollectionCover, CollectionPatch, File, LocalCollection, Ptr, UserManager},
     get_data, get_data_mut,
     icons::Icons,
     page::{SFader, CHOOSE_COVER},
@@ -278,17 +276,10 @@ impl FavoritesPage {
         let mut chart_ids = Vec::with_capacity(col.charts.len());
         let mut local_charts = Vec::new();
         for chart in &col.charts {
-            match chart {
-                ChartRef::Online(id, _) => {
-                    chart_ids.push(*id);
-                }
-                ChartRef::Local(path) => {
-                    if let Some(id) = data.charts.iter().find(|it| it.local_path == *path).and_then(|it| it.info.id) {
-                        chart_ids.push(id);
-                    } else if !allow_local {
-                        local_charts.push(path);
-                    }
-                }
+            if let Some(id) = chart.id() {
+                chart_ids.push(id);
+            } else if !allow_local {
+                local_charts.push(&*chart.path);
             }
         }
         if !local_charts.is_empty() {

@@ -212,13 +212,7 @@ pub struct ChartItem {
 }
 impl ChartItem {
     pub fn to_ref(&self) -> ChartRef {
-        if let Some(local) = &self.local_path {
-            ChartRef::Local(local.clone())
-        } else if let Some(id) = self.info.id {
-            ChartRef::Online(id, None)
-        } else {
-            panic!("chart item has neither id nor local path");
-        }
+        ChartRef::new_bare(self.info.id, self.local_path.as_deref())
     }
 }
 
