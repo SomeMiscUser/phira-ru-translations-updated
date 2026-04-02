@@ -87,6 +87,7 @@ pub struct FavoritesPage {
     cloud_delete: Arc<AtomicBool>,
     sync_from_cloud: Arc<AtomicBool>,
     force_sync_to_cloud: Arc<AtomicBool>,
+    new_data_from_cloud: Option<Collection>,
 
     // 编辑状态 || Editing state
     edit_btn: RectButton,
@@ -108,7 +109,8 @@ pub struct FavoritesPage {
     upload_task: Option<Task<Result<Collection>>>,
     delete_from_cloud_task: Option<Task<Result<()>>>,
     set_public_task: Option<Task<Result<Collection>>>,
-    sync_task: Option<Task<Result<Option<Collection>>>>,
+    sync_from_cloud_task: Option<Task<Result<Option<Collection>>>>,
+    sync_to_cloud_task: Option<Task<Result<Option<Collection>>>>,
     import_task: Option<Task<Result<Collection>>>,
     batch_import_task: Option<Task<Result<Vec<Chart>>>>,
     set_cover_task: Option<Task<Result<Result<Collection, File>>>>,
@@ -147,6 +149,7 @@ impl FavoritesPage {
             cloud_delete: Arc::default(),
             sync_from_cloud: Arc::default(),
             force_sync_to_cloud: Arc::default(),
+            new_data_from_cloud: None,
 
             edit_btn: RectButton::new(),
             edit_menu: Popup::new(),
@@ -167,7 +170,8 @@ impl FavoritesPage {
             upload_task: None,
             delete_from_cloud_task: None,
             set_public_task: None,
-            sync_task: None,
+            sync_from_cloud_task: None,
+            sync_to_cloud_task: None,
             import_task: None,
             batch_import_task: None,
             set_cover_task: None,
@@ -264,7 +268,8 @@ impl FavoritesPage {
         self.upload_task.is_some()
             || self.delete_from_cloud_task.is_some()
             || self.set_public_task.is_some()
-            || self.sync_task.is_some()
+            || self.sync_from_cloud_task.is_some()
+            || self.sync_to_cloud_task.is_some()
             || self.import_task.is_some()
             || self.batch_import_task.is_some()
             || self.set_cover_task.is_some()
@@ -363,7 +368,7 @@ impl FavoritesPage {
 
     fn sync_to_cloud(&mut self, force: bool) {
         if let Some(task) = Self::sync_to_cloud_task(self.active_folder.unwrap(), force) {
-            self.sync_task = Some(task);
+            self.sync_to_cloud_task = Some(task);
         }
     }
 
@@ -843,17 +848,24 @@ impl Page for FavoritesPage {
                         self.sync_to_cloud(false);
                     }
                     "sync-from-cloud" => {
-                        confirm_dialog(tl!("sync-from-cloud"), tl!("sync-confirm"), self.sync_from_cloud.clone());
+                        let col_id = data.collection_by_index(index).id.unwrap();
+                        self.sync_from_cloud_task = Some(Task::new(async move {
+                            let resp: Collection = recv_raw(Client::get(format!("/collection/{col_id}"))).await?.json().await?;
+                            Ok(Some(resp))
+                        }));
                     }
                     _ => {}
                 }
             }
             if self.sync_from_cloud.swap(false, Ordering::SeqCst) {
-                let col_id = data.collection_by_index(index).id.unwrap();
-                self.sync_task = Some(Task::new(async move {
-                    let resp: Collection = recv_raw(Client::get(format!("/collection/{col_id}"))).await?.json().await?;
-                    Ok(Some(resp))
-                }));
+                if let Some(col) = self.new_data_from_cloud.take() {
+                    let data = get_data();
+                    let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                    let local = data.collection_info(&uuid);
+                    data.set_collection_info(&uuid, local.merge(&col))?;
+                    show_message(tl!("synced")).ok();
+                    self.rebuild_folders();
+                }
             }
             if self.force_sync_to_cloud.swap(false, Ordering::SeqCst) {
                 self.sync_to_cloud(true);
@@ -919,7 +931,7 @@ impl Page for FavoritesPage {
                 self.set_public_task = None;
             }
         }
-        if let Some(task) = &mut self.sync_task {
+        if let Some(task) = &mut self.sync_to_cloud_task {
             if let Some(result) = task.take() {
                 match result {
                     Ok(Some(col)) => {
@@ -937,7 +949,36 @@ impl Page for FavoritesPage {
                         show_error(err);
                     }
                 }
-                self.sync_task = None;
+                self.sync_to_cloud_task = None;
+            }
+        }
+        if let Some(task) = &mut self.sync_from_cloud_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(Some(col)) => {
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let local = data.collection_info(&uuid);
+                        if local.remote_updated == Some(col.updated) {
+                            data.set_collection_info(
+                                &uuid,
+                                LocalCollection {
+                                    charts: col.charts.into_iter().map(Into::into).collect(),
+                                    ..LocalCollection::clone(&local)
+                                },
+                            )?;
+                            show_message(tl!("already-up-to-date")).ok();
+                        } else {
+                            confirm_dialog(tl!("sync-from-cloud"), tl!("sync-confirm"), self.sync_from_cloud.clone());
+                            self.new_data_from_cloud = Some(col);
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.sync_from_cloud_task = None;
             }
         }
         if let Some(task) = &mut self.import_task {
