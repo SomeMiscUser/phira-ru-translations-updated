@@ -269,12 +269,12 @@ impl LocalCollection {
         }
 
         let id = self.id;
+        let col_ids = self.charts.iter().filter_map(|it| it.id()).collect::<Vec<_>>();
         data.set_collection_info(&uuid, self).unwrap();
         if !should_upload {
             return CollectionUpdate::Updated { sync_task: None, add };
         }
 
-        let col_ids = charts.iter().filter_map(|it| it.id()).collect::<Vec<_>>();
         CollectionUpdate::Updated {
             sync_task: Some(Task::new(async move {
                 let resp: Collection =

@@ -675,9 +675,6 @@ impl Page for LibraryPage {
                 self.multi_select_menu.touch(touch, t);
                 return Ok(true);
             }
-            if self.tabs.touch(touch, s.rt) {
-                return Ok(true);
-            }
             if self.tags.touch(touch, t) {
                 return Ok(true);
             }
@@ -693,6 +690,9 @@ impl Page for LibraryPage {
             return Ok(true);
         }
         if choose_cover {
+            return Ok(true);
+        }
+        if self.tabs.touch(touch, s.rt) {
             return Ok(true);
         }
         if !matches!(self.tabs.selected().ty, ChartListType::Local) {
@@ -1077,9 +1077,9 @@ impl Page for LibraryPage {
                     if let Some(task) = sync_task {
                         self.manage_fav_task = Some(task);
                     } else if add {
-                        show_message(tl!("multi-added-to-fav")).ok();
+                        show_message(tl!("multi-added-to-fav")).duration(1.).ok();
                     } else {
-                        show_message(tl!("multi-removed-from-fav")).ok();
+                        show_message(tl!("multi-removed-from-fav")).duration(1.).ok();
                     }
                 }
             }

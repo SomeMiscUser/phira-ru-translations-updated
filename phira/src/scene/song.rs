@@ -1089,7 +1089,7 @@ impl SongScene {
                                 if pos == 1 {
                                     CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
                                 }
-                                false
+                                pos == -2
                             })
                             .show();
                     }
@@ -1389,7 +1389,7 @@ impl SongScene {
                     self.is_fav = None;
                     FAV_UPDATED.store(true, Ordering::SeqCst);
                     if add {
-                        show_message(tl!("fav-added")).ok();
+                        show_message(tl!("fav-added")).duration(1.5).ok();
                     }
                 }
             }
@@ -2408,7 +2408,7 @@ impl Scene for SongScene {
                             data.set_collection_info(&uuid, local.merge(&col))?;
                         }
                         if added {
-                            show_message(tl!("fav-added")).ok();
+                            show_message(tl!("fav-added")).duration(1.5).ok();
                         }
                         FAV_UPDATED.store(true, Ordering::SeqCst);
                         self.is_fav = None;
