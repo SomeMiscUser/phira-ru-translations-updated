@@ -86,7 +86,7 @@ review-edit-tags-failed = 編輯標籤失敗
 review-edit-tags-done = 標籤已更新
 mods = Mods
 mods-autoplay = 自動遊玩 (Auto)
-mods-autoplay-sub = 啟用後將無法上傳成績
+mods-autoplay-sub = *啟用後將無法上傳成績*
 mods-flip-x = X 軸翻轉 (Mirror)
 mods-flip-x-sub = 在 X 軸上翻轉譜面
 mods-fade-in = 漸顯 (Fade In)
@@ -124,7 +124,7 @@ stabilize-approved = 已通過
 stabilize-approved-passed = 已通過，譜面已 stable
 stabilize-denied = 已拒絕
 stabilize-denied-passed = 已拒絕，譜面已退件
-fav-added = 已收藏（長按以選擇其他資料夾）
+fav-added = 已收藏（長按以選擇其他收藏夾）
 still-loading = 仍在載入，請稍候…
 
 export = 匯出
