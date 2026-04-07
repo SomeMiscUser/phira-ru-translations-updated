@@ -410,7 +410,7 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_msg.touch(touch, t) {
-                self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new())));
+                self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
                 return Ok(true);
             }
             if self.btn_settings.touch(touch, t) {

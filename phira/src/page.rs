@@ -27,7 +27,7 @@ pub use settings::SettingsPage;
 use tokio::sync::Notify;
 
 use crate::{
-    client::{ChartRef, File},
+    client::{Chart, ChartRef, File},
     data::BriefChartInfo,
     dir, get_data,
     images::Images,
@@ -213,6 +213,15 @@ pub struct ChartItem {
 impl ChartItem {
     pub fn to_ref(&self) -> ChartRef {
         ChartRef::new_bare(self.info.id, self.local_path.as_deref())
+    }
+
+    pub fn from_remote(chart: &Chart) -> Self {
+        ChartItem {
+            info: chart.to_info(),
+            illu: Illustration::from_file_thumbnail(chart.illustration.clone()),
+            local_path: None,
+            chart_type: ChartType::Downloaded,
+        }
     }
 }
 

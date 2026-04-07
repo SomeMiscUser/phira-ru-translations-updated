@@ -4,7 +4,7 @@ use crate::{
     client::{Chart, ChartRef},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{ChartItem, ChartType, Fader, Illustration, CHOOSE_COVER, CHOSEN_COVER},
+    page::{ChartItem, Fader, CHOOSE_COVER, CHOSEN_COVER},
     popup::Popup,
     save_data,
     scene::{render_release_to_refresh, SongScene, MP_PANEL},
@@ -59,12 +59,7 @@ impl ChartDisplayItem {
 
     pub fn from_remote(chart: &Chart) -> Self {
         Self::new(
-            Some(ChartItem {
-                info: chart.to_info(),
-                illu: Illustration::from_file_thumbnail(chart.illustration.clone()),
-                local_path: None,
-                chart_type: ChartType::Downloaded,
-            }),
+            Some(ChartItem::from_remote(chart)),
             if chart.stable_request {
                 Some('+')
             } else if !chart.reviewed {
