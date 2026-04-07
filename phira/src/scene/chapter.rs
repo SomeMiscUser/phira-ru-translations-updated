@@ -43,10 +43,10 @@ impl Difficulty {
     }
 
     pub fn color(&self) -> Color {
-        Color::from_hex(match self {
-            Self::Easy => 0xff16a34a,
-            Self::Hard => 0xfff97316,
-            Self::Extreme => 0xffdc2626,
+        Color::from_hex_rgb(match self {
+            Self::Easy => 0x16a34a,
+            Self::Hard => 0xf97316,
+            Self::Extreme => 0xdc2626,
         })
     }
 }
@@ -256,6 +256,7 @@ impl Scene for ChapterScene {
                     hold_partial_cover: true,
                     note_uniform_scale: false,
                     force_aspect_ratio: false,
+                    use_rpe_170_speed: None,
 
                     created: None,
                     updated: None,

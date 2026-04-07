@@ -25,10 +25,10 @@ item-cache-size-loading = Загрузка...
 item-cache-size = Размер кэша: { $size }
 item-clear-cache-btn = Очистить
 item-cache-cleared = Кэш очищен
-item-insecure = Незащищëнный режим
-item-insecure-sub = Включите, если у вас возникают проблемы с подключением. !Делает подключение незащищëнным! 
+item-insecure = Незащищённый режим
+item-insecure-sub = Включите, если у вас возникают проблемы с подключением. !Делает подключение незащищённым!
 item-enable-anys = Включить Anys
-item-enable-anys-sub = Использовать шлюз Anys, чтобы улучшить качество подключения 
+item-enable-anys-sub = Использовать шлюз Anys, чтобы улучшить качество подключения
 item-anys-gateway = Шлюз Anys
 item-anys-gateway-sub = Адрес шлюза Anys
 item-anys-gateway-invalid = Неверный адрес шлюза
@@ -47,6 +47,10 @@ item-dhint = Подсветка одновременных нот
 item-dhint-sub = Ноты, что касаются линии одновременно, будут подсвечиваться.
 item-opt = Агрессивная оптимизация
 item-opt-sub = Улучшает производительность, но снижает стабильность
+item-use-keyboard = Использовать клавиатуру
+item-use-keyboard-sub = Включить ввод с клавиатуры для игры. Результаты не могут быть загружены при включении.
+item-prefer-reduced-motion = Предпочитать уменьшенное движение
+item-prefer-reduced-motion-sub = Уменьшить анимации и визуальные эффекты
 item-speed = Скорость чарта
 item-note-size = Размер нот
 
@@ -60,13 +64,37 @@ load-cali-failed = Ошибка загрузки аудио
 about-content =
   Phira v{ $version }
 
-  Phira является некоммерческой игрой на базе сообщества, вдохновлëнной Phigros, и написанной на Rust. 
-
-  Если вам нравится игра, вы можете поддержать еë на Patreon (@PhiraGame) или afdian.com (@Mivik). Ваша поддержка - это лучший мотиватор для нас.
+  Phira является некоммерческой игрой на базе сообщества, вдохновлённой Phigros.
 
   Аккаунт BiliBili: @Phira官方
-  Чат QQ (только Китай): r48eajexth
-  Discord-сервер: https://discord.gg/MC92fRrsds
+  Чат QQ: r48eajexth
+  Discord-сервер: discord.gg/gqpR3bTSsP
 
-  Игру уже поддержали : 
-  -哎喂哟-, 114514opkl, 123165, 341819481, 43167364miku, AEsir, Afterglow, akuanoneko, amstlkqp, ApecY176, Arashi, Ark小周, Aromq, Atariter, Aurora., Avencess, Bigironpig, Bradish, brightquasar, buguwu, ccw., CH06E01, CQBZ, Dagehoo, DongZheng, dslzhz, Dumbledore防重复, Ehdiwhxishs, Enigma, evmb, Fall_Li_distance, flamo, Fly段某, Gentle Emperor, GR-17, GYuuLT, Hen77777Tai, hibikip3p, huahbas, huanle, humosu, icyfish, Jerry24, Jiangling, jike, Kaji Emperor, KevinJame1, KKZN, KQ_KongQi, KRYSGCJ, Kynovter, LemonKnife, Lh_39_master, Lighear, liminghao, Lin124, Lio_the_Fox, LJMSTKZF, lorac, luftsch1oss, Maedey, mancy, MaxJack, MGRB, Miku.official, Miska1123, MSSkn, NaiTaGQ, NananEbina, nanxiangx, NEROILY, NingNing0721, NoChoco, Nothu, NsdrfChkew, O-DouSan, obsession, pgwcm, Phira-一个随意废物, PopCatNya, QAQwhatever, QingF_青枫, qwer0160, QWQYuRin, rainbowbex, Ransen, Reeslith, Requiem, RinceTacroix, Rinorsi, Rpec, RUNFORFUNQAQ, sbcujbj, Sensant, Shaaadowsong, Sixi, sksks, Sky_Frozen, soppi, Tearout, Tesla T-T, Thunderlis, Tigerzzz, Tixbicg, Tony0703, Ulyssses, Wind_And_Sky, wjxwp, wszyj, WuJi, wylwktd, xiaoqian, xiaozhemu, XOO_cookie, Xr888, yang125, YMiiiiiii, YN呓凝, YT_XT, yulilizi, yyyyyylll, ZERO707, Zips, ほしの アイ, 一片普通的茶叶, 三月鸠, 不会玩音游的屑, 久往大魔王, 乙酸乙烯酯, 二货甜鱼, 傲丙初A1bcu, 冷光_Lumine, 华树邶, 四十四次日落, 城边的一朵云, 天启之云, 如月清风, 小懒max, 小鲁班, 幻枫落晨, 御坂13900号, 心兮可念, 悲伤很菜, 我永远喜欢爱莉希雅, 日暖随安, 早安起不早, 明晓破风, 易阳Easy_sun, 晨曜, 曲奇cookies, 望悅不是月, 林江恒, 柒柒柒柒, 梓川川川川川川, 欧皇本蝗, 残风, 洛尘sama, 灵晨没有准度, 炫金创创鹅, 甘城猫猫猫猫, 男德村村西张寡妇, 白衣炫五月, 老王, 芝士土拨鼠, 若笛, 荷叶鸭腿, 落弦winglow, 落痕luor, 逐潘, 邮疣铀, 银酱, 露西亚是我的, 飞驰的压路机, 骁龙750G
+  Мы рекомендуем присоединиться к чату QQ или Discord-серверу, чтобы получать обновления в реальном времени и помощь.
+
+  Список персонала (отсортирован лексикографически)
+  Разработка
+  { $development }
+
+  Операции
+  { $operations }
+
+  Документация
+  { $documentation }
+
+  Искусство
+  { $art }
+
+  Музыка
+  { $music }
+
+  Аудио
+  { $audio }
+
+  Управление сообществом
+  { $community }
+
+  Локализация
+  { $localization }
+
+  И многие другие добровольные рецензенты чартов. Полный список см. на https://phira.moe/staff

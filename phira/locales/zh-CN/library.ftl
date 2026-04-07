@@ -28,6 +28,7 @@ fav-sync-failed = 收藏夹同步失败
 multi-select-status = 选中{ $count }项
 multi-export = 批量导出
 multi-create-fav = 创建收藏夹
+multi-manage-fav = 管理收藏夹
 multi-delete = 删除
 multi-delete-confirm = 确定要删除 { $count } 个谱面吗？此操作无法撤销。
 multi-deleted = 已删除
@@ -35,7 +36,10 @@ multi-deleted = 已删除
 multi-export-title = 选择导出位置
 multi-export-no-file = 请在导出前下载全部谱面。未下载：{ $charts }
 multi-exporting = 导出中 ({ $current } / { $total })
-multi-exported = 已导出
+exported = 已导出
+
+multi-added-to-fav = 已添加到收藏夹
+multi-removed-from-fav = 已从收藏夹移除
 
 multi-select-all = 全选
 multi-select-invert = 反选

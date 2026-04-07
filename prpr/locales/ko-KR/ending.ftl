@@ -8,7 +8,7 @@ rks-delta = RKS 변화량
 accuracy = 정확도
 error = 오차
 
-uploading = 결과 업로드중… 
+uploading = 결과 업로드중…
 uploaded = 결과 업로드됨
 upload-failed = 업로드 실패
 upload-cancel = 업로드 취소

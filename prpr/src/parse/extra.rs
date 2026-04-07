@@ -135,6 +135,9 @@ struct ExtVideo {
     alpha: ExtAnim<f32>,
     #[serde(default)]
     dim: ExtAnim<f32>,
+    #[cfg(feature = "video")]
+    #[serde(default)]
+    attach: Option<crate::core::VideoAttach>,
 }
 
 #[derive(Deserialize)]
@@ -190,7 +193,7 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
     let mut videos = Vec::new();
     #[cfg(feature = "video")]
     for video in ext.videos {
-        videos.push(
+        videos.push((
             Video::new(
                 fs.load_file(&video.path)
                     .await
@@ -201,7 +204,8 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
                 video.dim.into(&mut r, Some(0.)),
             )
             .with_context(|| ptl!("video-load-failed", "path" => video.path))?,
-        );
+            video.attach,
+        ));
     }
     #[cfg(not(feature = "video"))]
     if !ext.videos.is_empty() {

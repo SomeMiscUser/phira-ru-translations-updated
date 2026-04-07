@@ -103,8 +103,20 @@ mods-autoplay = 自动游玩
 mods-autoplay-sub = 启用后将无法上传成绩
 mods-flip-x = X 轴反转
 mods-flip-x-sub = 在 X 轴上反转谱面
+mods-fade-in = 上隐
+mods-fade-in-sub = 音符在靠近判定线时会显现
 mods-fade-out = 下隐
 mods-fade-out-sub = 音符在靠近判定线时会隐藏
+mods-nightcore = 夜店
+mods-nightcore-sub = 以高倍速游玩谱面
+mods-rainbow = 彩虹
+mods-rainbow-sub = 遇上彩虹，吃定彩虹
+mods-instant-death-ap = 突然死亡（AP）
+mods-instant-death-ap-sub = 非完美判定立即失败
+mods-instant-death-fc = 突然死亡（FC）
+mods-instant-death-fc-sub = 连击中断立即失败
+mods-no-shader = 无着色器
+mods-no-shader-sub = 禁用着色器特效。*启用此 Mod 后无法上传成绩*
 
 rate-failed = 评分失败
 rate-done = 评分成功
@@ -130,6 +142,9 @@ stabilize-approved-passed = 已通过，谱面已 stable
 stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
 
-fav-added = 已收藏
+fav-added = 已收藏（长按以选择其他收藏夹）
 
 still-loading = 仍在加载中…
+
+export = 导出
+exporting = 导出中…

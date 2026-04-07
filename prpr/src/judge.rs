@@ -151,7 +151,7 @@ pub enum Judgement {
     Miss,
 }
 
-#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
+#[cfg(not(closed))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
     diffs: Vec<f32>,
@@ -164,7 +164,7 @@ pub(crate) struct JudgeInner {
     late_kind: [u32; 4],
 }
 
-#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
+#[cfg(not(closed))]
 impl JudgeInner {
     pub fn new(num_of_notes: u32) -> Self {
         Self {
@@ -260,9 +260,9 @@ impl JudgeInner {
 }
 
 #[rustfmt::skip]
-#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+#[cfg(closed)]
 pub mod inner;
-#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+#[cfg(closed)]
 use inner::*;
 
 type Judgements = Vec<(f32, u32, u32, Result<Judgement, bool>)>;
@@ -443,11 +443,16 @@ impl Judge {
                 })
                 .collect()
         };
-        let (events, keys_down) = TOUCHES.with(|it| {
+        let (events, keys_down, key_delta) = TOUCHES.with(|it| {
             let guard = it.borrow();
-            (guard.touches.clone(), guard.keys_down)
+            let events = guard.touches.clone();
+            if res.config.use_keyboard {
+                (events, guard.keys_down, guard.key_delta)
+            } else {
+                (events, 0, 0)
+            }
         });
-        self.key_down_count = self.key_down_count.saturating_add_signed(TOUCHES.with(|it| it.borrow().key_delta));
+        self.key_down_count = self.key_down_count.saturating_add_signed(key_delta);
         {
             fn to_local(Vec2 { x, y }: Vec2) -> Point {
                 Point::new(x / screen_width() * 2. - 1., y / screen_height() * 2. - 1.)
@@ -559,7 +564,7 @@ impl Judge {
                     let dt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
-                    let dist = (x.now() - pos.x).abs();
+                    let dist = (x.now() - pos.x).abs() / note.judge_area;
                     if dist > X_DIFF_MAX {
                         continue;
                     }
@@ -795,11 +800,15 @@ impl Judge {
             }
             if match judgement {
                 Judgement::Perfect => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect()));
+                    res.with_model(line_tr * note.object.now(res), |res| {
+                        res.emit_at_origin(note.rotation(line), note.fx_color.unwrap_or_else(|| res.res_pack.info.fx_perfect()))
+                    });
                     true
                 }
                 Judgement::Good => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good()));
+                    res.with_model(line_tr * note.object.now(res), |res| {
+                        res.emit_at_origin(note.rotation(line), note.fx_color.unwrap_or_else(|| res.res_pack.info.fx_good()))
+                    });
                     true
                 }
                 Judgement::Bad => {

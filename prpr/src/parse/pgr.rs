@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use macroquad::color::WHITE;
 use serde::Deserialize;
 use std::{cell::RefCell, collections::HashMap};
 use tracing::warn;
@@ -217,6 +218,9 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 multiple_hint: false,
                 fake: false,
                 judge: JudgeStatus::NotJudged,
+                color: WHITE,
+                fx_color: None,
+                judge_area: 1.,
             })
         })
         .collect()

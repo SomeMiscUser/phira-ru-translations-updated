@@ -45,15 +45,15 @@ use tracing::{debug, warn};
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
 #[rustfmt::skip]
-#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+#[cfg(closed)]
 mod inner;
-#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+#[cfg(closed)]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
 const AFTER_TIME: f32 = 0.7;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleRecord {
     pub score: i32,
@@ -153,6 +153,8 @@ pub struct GameScene {
     fps_frame_count: u32,
     fps_total_time: f64,
     fps_last_frame_time: f64,
+
+    dead: bool,
 }
 
 macro_rules! reset {
@@ -160,7 +162,7 @@ macro_rules! reset {
         $self.bad_notes.clear();
         $self.judge.reset();
         $self.chart.reset();
-        $res.judge_line_color = Color::from_hex($res.res_pack.info.color_perfect);
+        $res.judge_line_color = Color::from_hex_argb($res.res_pack.info.color_perfect);
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
         $tm.speed = $res.config.speed as _;
@@ -170,6 +172,7 @@ macro_rules! reset {
         $self.fps_frame_count = 0;
         $self.fps_total_time = 0.0;
         $self.fps_last_frame_time = $tm.real_time();
+        $self.dead = false;
     }};
 }
 
@@ -189,16 +192,9 @@ impl GameScene {
         bail!("Cannot find chart file")
     }
 
-    pub async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<(Chart, Vec<u8>, ChartFormat)> {
-        let extra = fs.load_file("extra.json").await.ok().map(String::from_utf8).transpose()?;
-        let extra = if let Some(extra) = extra {
-            parse_extra(&extra, fs).await.context("Failed to parse extra")?
-        } else {
-            ChartExtra::default()
-        };
-        let bytes = Self::load_chart_bytes(fs, info).await.context("Failed to load chart")?;
-        let format = info.format.clone().unwrap_or_else(|| {
-            if let Ok(text) = String::from_utf8(bytes.clone()) {
+    pub fn infer_chart_format(info: &ChartInfo, bytes: &[u8]) -> ChartFormat {
+        info.format.clone().unwrap_or_else(|| {
+            if let Ok(text) = String::from_utf8(bytes.to_vec()) {
                 if text.starts_with('{') {
                     if text.contains("\"META\"") {
                         ChartFormat::Rpe
@@ -211,9 +207,20 @@ impl GameScene {
             } else {
                 ChartFormat::Pbc
             }
-        });
+        })
+    }
+
+    pub async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<(Chart, Vec<u8>, ChartFormat)> {
+        let extra = fs.load_file("extra.json").await.ok().map(String::from_utf8).transpose()?;
+        let extra = if let Some(extra) = extra {
+            parse_extra(&extra, fs).await.context("Failed to parse extra")?
+        } else {
+            ChartExtra::default()
+        };
+        let bytes = Self::load_chart_bytes(fs, info).await.context("Failed to load chart")?;
+        let format = Self::infer_chart_format(info, &bytes);
         let mut chart = match format {
-            ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, extra).await,
+            ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, extra, info.use_rpe_170_speed.unwrap_or_default()).await,
             ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pbc => {
@@ -250,12 +257,27 @@ impl GameScene {
         }
 
         let (mut chart, chart_bytes, chart_format) = Self::load_chart(fs.deref_mut(), &info).await?;
+        if config.mods.contains(Mods::NO_SHADER) {
+            chart.extra.effects.clear();
+            chart.extra.global_effects.clear();
+        }
         let effects = std::mem::take(&mut chart.extra.global_effects);
         if config.fxaa {
             chart
                 .extra
                 .effects
                 .push(Effect::new(0.0..f32::INFINITY, include_str!("fxaa.glsl"), Vec::new(), false).unwrap());
+        }
+
+        if config.has_mod(Mods::NIGHTCORE) {
+            config.speed *= 1.5;
+        }
+
+        if config.has_mod(Mods::RAINBOW) {
+            chart
+                .extra
+                .effects
+                .push(Effect::new(0.0..f32::INFINITY, include_str!("rainbow.glsl"), Vec::new(), false).unwrap());
         }
 
         let info_offset = info.offset;
@@ -323,6 +345,8 @@ impl GameScene {
             fps_frame_count: 0,
             fps_total_time: 0.0,
             fps_last_frame_time: 0.0,
+
+            dead: false,
         })
     }
 
@@ -384,6 +408,8 @@ impl GameScene {
                     self.music.pause()?;
                 }
                 tm.pause();
+                #[cfg(target_env = "ohos")]
+                miniquad::native::set_interceptor_state(false);
             }
         }
         ui.alpha(res.alpha, |ui| {
@@ -528,12 +554,13 @@ impl GameScene {
                 },
             );
             let r = Rect::new(0., o, 0., 0.).feather(s);
-            ui.fill_rect(r, (*res.icon_retry, r.feather(0.02), ScaleType::Fit, if no_retry { semi_white(res.alpha * 0.6) } else { c }));
+            let disabled_color = semi_white(res.alpha * 0.4);
+            ui.fill_rect(r, (*res.icon_retry, r.feather(0.02), ScaleType::Fit, if no_retry { disabled_color } else { c }));
             draw_texture_ex(
                 *res.icon_resume,
                 s + w,
                 -s + o,
-                c,
+                if self.dead { disabled_color } else { c },
                 DrawTextureParams {
                     dest_size: Some(vec2(s * 2., s * 2.)),
                     ..Default::default()
@@ -556,7 +583,7 @@ impl GameScene {
                         }
                     }
                 }
-                if no_retry && clicked == Some(0) {
+                if no_retry && clicked == Some(0) || self.dead && clicked == Some(1) {
                     clicked = None;
                 }
                 let mut pos = self.music.position();
@@ -577,9 +604,13 @@ impl GameScene {
                 match clicked {
                     Some(-1) => {
                         self.should_exit = true;
+                        #[cfg(target_env = "ohos")]
+                        miniquad::native::set_interceptor_state(false);
                     }
                     Some(0) => {
                         reset!(self, res, tm);
+                        #[cfg(target_env = "ohos")]
+                        miniquad::native::set_interceptor_state(true);
                     }
                     Some(1) => {
                         if self.mode == GameMode::Exercise
@@ -603,6 +634,8 @@ impl GameScene {
                         tm.resume();
                         tm.seek_to(now - 3.);
                         self.pause_rewind = Some(tm.now() - 0.2);
+                        #[cfg(target_env = "ohos")]
+                        miniquad::native::set_interceptor_state(true);
                     }
                     _ => {}
                 }
@@ -816,6 +849,8 @@ impl Scene for GameScene {
     fn enter(&mut self, tm: &mut TimeManager, target: Option<RenderTarget>) -> Result<()> {
         #[cfg(target_arch = "wasm32")]
         on_game_start();
+        #[cfg(target_env = "ohos")]
+        miniquad::native::set_interceptor_state(true);
         self.music = Self::new_music(&mut self.res)?;
         self.res.camera.render_target = target;
         tm.speed = self.res.config.speed as _;
@@ -832,6 +867,8 @@ impl Scene for GameScene {
             self.music.pause()?;
             tm.pause();
         }
+        #[cfg(target_env = "ohos")]
+        miniquad::native::set_interceptor_state(false);
         Ok(())
     }
 
@@ -854,6 +891,8 @@ impl Scene for GameScene {
             tm.seek_to(self.exercise_range.start as f64);
             tm.pause();
             self.music.pause()?;
+            #[cfg(target_env = "ohos")]
+            miniquad::native::set_interceptor_state(false);
         }
         let offset = self.offset();
         let time = tm.now() as f32;
@@ -908,6 +947,8 @@ impl Scene for GameScene {
             State::Playing => {
                 if time > self.res.track_length + WAIT_TIME {
                     self.state = State::Ending;
+                    #[cfg(target_env = "ohos")]
+                    miniquad::native::set_interceptor_state(false);
                 }
                 time
             }
@@ -916,9 +957,13 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
+                    #[cfg(closed)]
                     if let Some(upload_fn) = &self.upload_fn {
-                        if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
+                        if !self.res.config.offline_mode
+                            && !self.res.config.mods.intersects(Mods::UNRATED)
+                            && !self.res.config.use_keyboard
+                            && self.res.config.speed >= 1.0 - 1e-3
+                        {
                             if let Some(player) = &self.player {
                                 if let Some(chart) = &self.res.info.id {
                                     record_data = Some(encode_record(self, player.id, *chart));
@@ -927,7 +972,7 @@ impl Scene for GameScene {
                         }
                     }
                     let result = self.judge.result();
-                    let record = if self.res.config.autoplay() || self.res.config.speed < 1.0 - 1e-3 {
+                    let record = if self.res.config.mods.intersects(Mods::UNRATED) || self.res.config.speed < 1.0 - 1e-3 {
                         None
                     } else {
                         Some(SimpleRecord {
@@ -961,6 +1006,7 @@ impl Scene for GameScene {
                                 self.res.icons.clone(),
                                 self.res.icon_retry.clone(),
                                 self.res.icon_proceed.clone(),
+                                self.res.mod_icons.clone(),
                                 self.res.info.clone(),
                                 self.judge.result(),
                                 &self.res.config,
@@ -992,8 +1038,8 @@ impl Scene for GameScene {
             update(self.res.time, &mut self.res, &mut self.judge);
         }
         let counts = self.judge.counts();
-        self.res.judge_line_color = if counts[2] + counts[3] == 0 {
-            Color::from_hex(if counts[1] == 0 {
+        self.res.judge_line_color = if counts[2] + counts[3] == 0 && self.res.config.ap_fc_indicator {
+            Color::from_hex_argb(if counts[1] == 0 {
                 self.res.res_pack.info.color_perfect
             } else {
                 self.res.res_pack.info.color_good
@@ -1001,6 +1047,19 @@ impl Scene for GameScene {
         } else {
             WHITE
         };
+        if !self.dead
+            && (self.res.config.mods.contains(Mods::INSTANT_DEATH_AP) && counts[1] + counts[2] + counts[3] > 0
+                || self.res.config.mods.contains(Mods::INSTANT_DEATH_FC) && counts[2] + counts[3] > 0)
+        {
+            if !self.music.paused() {
+                self.music.pause()?;
+            }
+            tm.pause();
+            self.dead = true;
+            #[cfg(target_env = "ohos")]
+            miniquad::native::set_interceptor_state(false);
+            show_message(tl!("game-over")).error();
+        }
         self.res.judge_line_color.a *= self.res.alpha;
         self.chart.update(&mut self.res);
         let res = &mut self.res;
@@ -1018,13 +1077,13 @@ impl Scene for GameScene {
             }
         }
         if Self::interactive(res, &self.state) {
-            if is_key_pressed(KeyCode::Left) {
+            if is_key_pressed(KeyCode::Left) && res.config.use_keyboard {
                 res.time -= 1.;
                 let dst = (self.music.position() - 1.).max(0.);
                 self.music.seek_to(dst)?;
                 tm.seek_to(dst as f64);
             }
-            if is_key_pressed(KeyCode::Right) {
+            if is_key_pressed(KeyCode::Right) && res.config.use_keyboard {
                 res.time += 5.;
                 let dst = (self.music.position() + 5.).min(res.track_length);
                 self.music.seek_to(dst)?;

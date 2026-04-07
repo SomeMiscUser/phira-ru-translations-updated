@@ -176,6 +176,12 @@ pub fn request_input(id: impl Into<String>, mut config: InputBox) {
     if config.prompt.is_none() {
         config = config.prompt(ttl!("input-msg"));
     }
+    if config.cancel_label.is_none() {
+        config = config.cancel_label(ttl!("cancel"));
+    }
+    if config.ok_label.is_none() {
+        config = config.ok_label(ttl!("confirm"));
+    }
     show_inputbox(config, &*default_backend());
 }
 

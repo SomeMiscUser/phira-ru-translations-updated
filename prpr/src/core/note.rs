@@ -1,6 +1,7 @@
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
 pub use crate::{
-    judge::{HitSound, JudgeStatus},
+    config::Mods,
+    judge::{HitSound, JudgeStatus, LIMIT_BAD},
     parse::RPE_HEIGHT,
 };
 use macroquad::prelude::*;
@@ -35,6 +36,9 @@ pub struct Note {
     pub time: f32,
     pub height: f32,
     pub speed: f32,
+    pub color: Color,
+    pub fx_color: Option<Color>,
+    pub judge_area: f32,
 
     /// From the other side of the line
     pub above: bool,
@@ -48,7 +52,6 @@ pub struct RenderConfig<'a> {
     pub ctrl_obj: &'a mut CtrlObject,
     pub line_height: f32,
     pub appear_before: f32,
-    pub invisible_time: f32,
     pub draw_below: bool,
     pub incline_sin: f32,
 }
@@ -140,11 +143,13 @@ impl Note {
         if let Some(color) = if let JudgeStatus::Hold(perfect, at, ..) = &mut self.judge {
             if res.time > *at {
                 *at += HOLD_PARTICLE_INTERVAL / res.config.speed;
-                Some(if *perfect {
-                    res.res_pack.info.fx_perfect()
-                } else {
-                    res.res_pack.info.fx_good()
-                })
+                Some(self.fx_color.unwrap_or_else(|| {
+                    if *perfect {
+                        res.res_pack.info.fx_perfect()
+                    } else {
+                        res.res_pack.info.fx_good()
+                    }
+                }))
             } else {
                 None
             }
@@ -198,9 +203,6 @@ impl Note {
                 return;
             }
         }
-        if config.invisible_time.is_finite() && self.time - config.invisible_time < res.time {
-            return;
-        }
         let scale = (if res.config.double_hint && self.multiple_hint {
             res.res_pack.note_style_mh.click.width() / res.res_pack.note_style.click.width()
         } else {
@@ -208,7 +210,10 @@ impl Note {
         }) * res.note_width;
         let ctrl_obj = &mut config.ctrl_obj;
         self.init_ctrl_obj(ctrl_obj, config.line_height);
-        let mut color = self.object.now_color();
+        let mut color = Color {
+            a: self.object.now_alpha(),
+            ..self.color
+        };
         color.a *= res.alpha * ctrl_obj.alpha.now_opt().unwrap_or(1.);
         let spd = self.speed * ctrl_obj.y.now_opt().unwrap_or(1.);
 
@@ -229,7 +234,7 @@ impl Note {
         };
 
         if !config.draw_below
-            && ((res.time - FADEOUT_TIME >= self.time && !matches!(self.kind, NoteKind::Hold { .. }))
+            && (((res.time - FADEOUT_TIME >= self.time || self.fake && res.time >= self.time) && !matches!(self.kind, NoteKind::Hold { .. }))
                 || (self.time > res.time && cover_base <= -0.001))
         {
             return;
@@ -240,11 +245,20 @@ impl Note {
         } else {
             &res.res_pack.note_style
         };
+        let mod_alpha = if res.config.has_mod(Mods::FADE_OUT) {
+            ((self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
+        } else if res.config.has_mod(Mods::FADE_IN) {
+            (1. - (self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
+        } else {
+            1.
+        };
         let draw = |res: &mut Resource, tex: Texture2D| {
             let mut color = color;
             if !config.draw_below {
-                color.a *= (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
+                let alpha = (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
+                color.a *= if self.fake && res.time >= self.time { 0. } else { alpha };
             }
+            color.a *= mod_alpha;
             res.with_model(self.now_transform(res, ctrl_obj, base, config.incline_sin), |res| {
                 draw_center(res, tex, order, scale, color);
             });
@@ -268,6 +282,7 @@ impl Note {
                         return;
                     }
                     let end_height = end_height / res.aspect_ratio * spd;
+                    color.a *= mod_alpha;
 
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;

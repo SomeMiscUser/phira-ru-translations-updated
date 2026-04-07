@@ -11,7 +11,7 @@ mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::{ExportInfo, LibraryPage, CHOOSE_COVER, CHOSEN_COVER, FAV_UPDATED};
+pub use library::{request_export, resolve_export, take_export, ExportInfo, LibraryPage, CHOOSE_COVER, CHOSEN_COVER, FAV_UPDATED};
 
 mod message;
 pub use message::MessagePage;
@@ -27,7 +27,7 @@ pub use settings::SettingsPage;
 use tokio::sync::Notify;
 
 use crate::{
-    client::{ChartRef, File},
+    client::{Chart, ChartRef, File},
     data::BriefChartInfo,
     dir, get_data,
     images::Images,
@@ -191,6 +191,8 @@ impl Illustration {
     pub fn alpha(&self, t: f32) -> f32 {
         if self.load_time.is_nan() {
             0.
+        } else if get_data().prefer_reduced_motion {
+            1.
         } else {
             ((t - self.load_time) / Self::TIME).min(1.)
         }
@@ -210,12 +212,15 @@ pub struct ChartItem {
 }
 impl ChartItem {
     pub fn to_ref(&self) -> ChartRef {
-        if let Some(local) = &self.local_path {
-            ChartRef::Local(local.clone())
-        } else if let Some(id) = self.info.id {
-            ChartRef::Online(id, None)
-        } else {
-            panic!("chart item has neither id nor local path");
+        ChartRef::new_bare(self.info.id, self.local_path.as_deref())
+    }
+
+    pub fn from_remote(chart: &Chart) -> Self {
+        ChartItem {
+            info: chart.to_info(),
+            illu: Illustration::from_file_thumbnail(chart.illustration.clone()),
+            local_path: None,
+            chart_type: ChartType::Downloaded,
         }
     }
 }
@@ -292,7 +297,11 @@ impl Fader {
         if self.start_time.is_nan() {
             0.
         } else {
-            let p = ((t - self.start_time) / self.time * scale).clamp(0., 1.);
+            let p = if get_data().prefer_reduced_motion {
+                1.
+            } else {
+                ((t - self.start_time) / self.time * scale).clamp(0., 1.)
+            };
             let p = (1. - p).powi(3);
             let p = if self.back { p } else { 1. - p };
             if self.sub {
@@ -327,7 +336,7 @@ impl Fader {
     }
 
     pub fn done(&mut self, t: f32) -> Option<bool> {
-        if !self.start_time.is_nan() && t - self.start_time > self.time {
+        if !self.start_time.is_nan() && (t - self.start_time > self.time || get_data().prefer_reduced_motion) {
             self.start_time = f32::NAN;
             Some(self.back)
         } else {
@@ -405,7 +414,11 @@ impl SFader {
         if self.time.is_nan() {
             return;
         }
-        let p = ((t - self.time) / Self::TIME).min(1.);
+        let p = if get_data().prefer_reduced_motion {
+            1.
+        } else {
+            ((t - self.time) / Self::TIME).min(1.)
+        };
         if p >= 1. && self.next_scene.is_none() {
             self.time = f32::NAN;
         } else {

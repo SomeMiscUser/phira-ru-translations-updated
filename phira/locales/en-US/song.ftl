@@ -102,11 +102,23 @@ review-edit-tags-done = Tags updated.
 
 mods = Mods
 mods-autoplay = Autoplay
-mods-autoplay-sub = Plays the chart without user input.
+mods-autoplay-sub = Results will not be submitted when enabled.
 mods-flip-x = Mirror
 mods-flip-x-sub = Mirrors the chart by the X-axis.
+mods-fade-in = Fade-In
+mods-fade-in-sub = Makes notes fade in when they approach the judgeline.
 mods-fade-out = Fade-Out
 mods-fade-out-sub = Makes notes fade out when they approach the judgeline.
+mods-nightcore = Nightcore
+mods-nightcore-sub = Plays the chart at higher speed
+mods-rainbow = Rainbow
+mods-rainbow-sub = Makes your game a *little* more colorful
+mods-instant-death-ap = Instant Death (AP)
+mods-instant-death-ap-sub = Fail on any judgment below Perfect.
+mods-instant-death-fc = Instant Death (FC)
+mods-instant-death-fc-sub = Fail if the combo is broken.
+mods-no-shader = No Shader
+mods-no-shader-sub = Disables shader effects. *YOU CAN'T UPLOAD SCORES WITH THIS MOD ENABLED*
 
 rate-failed = Rate failed.
 rate-done = Rated successfully.
@@ -132,6 +144,9 @@ stabilize-approved-passed = The chart has been stabilized.
 stabilize-denied = Denied
 stabilize-denied-passed = Denied, the beatmap is rejected
 
-fav-added = Added to favorites
+fav-added = Added to favorites (long press to manage)
 
 still-loading = Still loading...
+
+export = Export
+exporting = Exporting...

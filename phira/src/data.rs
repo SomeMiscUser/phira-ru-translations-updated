@@ -9,13 +9,14 @@ use prpr::{
     config::{Config, Mods},
     info::ChartInfo,
     scene::SimpleRecord,
+    ui::PREFER_REDUCED_MOTION,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     ops::DerefMut,
     path::Path,
-    sync::Arc,
+    sync::{atomic::Ordering, Arc},
 };
 use tracing::{debug, warn};
 use uuid::Uuid;
@@ -101,6 +102,8 @@ pub struct Data {
     pub enable_anys: bool,
     #[serde(default = "default_anys_gateway")]
     pub anys_gateway: String,
+
+    pub prefer_reduced_motion: bool,
 
     #[serde(default, rename = "collections")]
     collections_legacy: Vec<LocalCollection>,
@@ -259,6 +262,7 @@ impl Data {
             }
             self.respacks.push(filename);
         }
+        self.respack_id = self.respack_id.min(self.respacks.len().saturating_sub(1));
         if let Some(res_pack_path) = &mut self.config.res_pack_path {
             if res_pack_path.starts_with('/') {
                 // for compatibility
@@ -286,6 +290,7 @@ impl Data {
             .retain(|local_path, _| Path::new(&format!("{charts}/{local_path}")).exists());
 
         self.config.init();
+        PREFER_REDUCED_MOTION.store(self.prefer_reduced_motion, Ordering::Relaxed);
         Ok(())
     }
 

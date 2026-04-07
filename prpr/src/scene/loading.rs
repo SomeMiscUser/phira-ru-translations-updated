@@ -9,23 +9,37 @@ use crate::{
     scene::game::SimpleRecord,
     task::Task,
     time::TimeManager,
-    ui::{clip_rounded_rect, rounded_rect_shadow, LoadingParams, ShadowConfig, Ui},
+    ui::{clip_rounded_rect, rounded_rect_shadow, LoadingParams, ShadowConfig, Ui, PREFER_REDUCED_MOTION},
 };
 use ::rand::{seq::SliceRandom, thread_rng};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use regex::Regex;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 use tracing::warn;
 
 const BEFORE_TIME: f32 = 1.;
-const TRANSITION_TIME: f32 = 1.4;
-const WAIT_TIME: f32 = 0.4;
 const FADE_IN_TIME: f32 = 0.6;
 
 pub type UploadFn = Arc<dyn Fn(Vec<u8>) -> Task<Result<RecordUpdateState>>>;
 pub type UpdateFn = Box<dyn FnMut(f32, &mut Resource, &mut Judge)>;
 pub type SaveFn = Box<dyn Fn(SimpleRecord) -> Result<()>>;
+
+fn transition_time() -> Option<f32> {
+    if PREFER_REDUCED_MOTION.load(Ordering::Relaxed) {
+        None
+    } else {
+        Some(1.4)
+    }
+}
+
+fn wait_time() -> f32 {
+    if PREFER_REDUCED_MOTION.load(Ordering::Relaxed) {
+        0.
+    } else {
+        0.4
+    }
+}
 
 pub struct BasicPlayer {
     pub avatar: Option<SafeTexture>,
@@ -49,8 +63,6 @@ pub struct LoadingScene {
 }
 
 impl LoadingScene {
-    pub const TOTAL_TIME: f32 = BEFORE_TIME + TRANSITION_TIME + WAIT_TIME;
-
     pub async fn load(fs: &mut dyn FileSystem, path: &str) -> Result<(SafeTexture, SafeTexture, Color)> {
         let image = image::load_from_memory(&fs.load_file(path).await?).context("Failed to decode image")?;
         let (w, h) = (image.width(), image.height());
@@ -167,8 +179,10 @@ impl Scene for LoadingScene {
 
         ui.alpha((t / FADE_IN_TIME).min(1.), |ui| {
             let dx = if t > self.finish_time {
-                let p = ((t - self.finish_time) / TRANSITION_TIME).min(1.);
-                p.powi(3) * 2.
+                transition_time().map_or(1., |tt| {
+                    let p = ((t - self.finish_time) / tt).min(1.);
+                    p.powi(3) * 2.
+                })
             } else {
                 0.
             };
@@ -281,7 +295,7 @@ impl Scene for LoadingScene {
         if matches!(self.next_scene, Some(NextScene::PopWithResult(_))) {
             return self.next_scene.take().unwrap();
         }
-        if tm.now() as f32 > self.finish_time + TRANSITION_TIME + WAIT_TIME {
+        if tm.now() as f32 > self.finish_time + transition_time().unwrap_or_default() + wait_time() {
             if let Some(scene) = self.next_scene.take() {
                 return scene;
             }
