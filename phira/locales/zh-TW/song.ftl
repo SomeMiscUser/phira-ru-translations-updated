@@ -65,9 +65,16 @@ info-composer = 曲師
 info-charter = 譜師
 info-difficulty = 難度
 info-desc = 簡介
+info-collaborators = 協作者
 info-rating = 評分
 info-type = 類型
 info-tags = 標籤
+
+collab-autocomplete-title = 協作者補全
+collab-autocomplete-content = 偵測到缺少使用者 ID 的協作者：{ $mentions }，是否自動補全？
+collab-autocomplete-failed = 無法解析「@{ $name }」：使用者不存在或有多個匹配。
+collab-autocomplete-done = 協作者已補全
+
 reviewed = 已審核
 unreviewed = 未審核
 review-approve = 通過

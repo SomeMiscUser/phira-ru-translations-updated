@@ -211,7 +211,7 @@ pub struct ChartItem {
     pub chart_type: ChartType,
 }
 impl ChartItem {
-    pub fn to_ref(&self) -> ChartRef {
+    pub fn to_bare_ref(&self) -> ChartRef {
         ChartRef::new_bare(self.info.id, self.local_path.as_deref())
     }
 

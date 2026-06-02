@@ -41,6 +41,7 @@ preferred-sample-rate-default = 系統預設
 item-audio-buffer-size = 音訊緩衝區大小
 item-show-acc = 顯示即時準確率
 item-show-avg-fps = 顯示平均FPS
+item-show-avg-fps-sub = 在結算介面顯示每秒影格數
 item-dc-pause = 點兩下暫停
 item-dhint = 雙押提示
 item-dhint-sub = 同時觸線的音符將會被高亮

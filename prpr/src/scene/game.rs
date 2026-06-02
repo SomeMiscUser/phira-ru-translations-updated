@@ -50,8 +50,8 @@ mod inner;
 #[cfg(closed)]
 use inner::*;
 
-const WAIT_TIME: f32 = 0.5;
-const AFTER_TIME: f32 = 0.7;
+const WAIT_TIME: f64 = 0.5;
+const AFTER_TIME: f64 = 0.7;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -130,7 +130,7 @@ pub struct GameScene {
     effects: Vec<Effect>,
 
     first_in: bool,
-    exercise_range: Range<f32>,
+    exercise_range: Range<f64>,
     exercise_press: Option<(i8, u64)>,
     exercise_btns: (RectButton, RectButton),
 
@@ -162,7 +162,7 @@ macro_rules! reset {
         $self.bad_notes.clear();
         $self.judge.reset();
         $self.chart.reset();
-        $res.judge_line_color = Color::from_hex_argb($res.res_pack.info.color_perfect);
+        $res.judge_line_color = $res.res_pack.info.color_perfect();
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
         $tm.speed = $res.config.speed as _;
@@ -177,8 +177,8 @@ macro_rules! reset {
 }
 
 impl GameScene {
-    pub const BEFORE_TIME: f32 = 0.7;
-    pub const FADEOUT_TIME: f32 = WAIT_TIME + AFTER_TIME + 0.3;
+    pub const BEFORE_TIME: f64 = 0.7;
+    pub const FADEOUT_TIME: f64 = WAIT_TIME + AFTER_TIME + 0.3;
 
     pub async fn load_chart_bytes(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<Vec<u8>> {
         if let Ok(bytes) = fs.load_file(&info.chart).await {
@@ -266,7 +266,7 @@ impl GameScene {
             chart
                 .extra
                 .effects
-                .push(Effect::new(0.0..f32::INFINITY, include_str!("fxaa.glsl"), Vec::new(), false).unwrap());
+                .push(Effect::new(0.0..f64::INFINITY, include_str!("fxaa.glsl"), Vec::new(), false).unwrap());
         }
 
         if config.has_mod(Mods::NIGHTCORE) {
@@ -277,7 +277,7 @@ impl GameScene {
             chart
                 .extra
                 .effects
-                .push(Effect::new(0.0..f32::INFINITY, include_str!("rainbow.glsl"), Vec::new(), false).unwrap());
+                .push(Effect::new(0.0..f64::INFINITY, include_str!("rainbow.glsl"), Vec::new(), false).unwrap());
         }
 
         let info_offset = info.offset;
@@ -300,7 +300,7 @@ impl GameScene {
             }
         });
 
-        let exercise_range = (chart.offset + info_offset + res.config.offset)..res.track_length;
+        let exercise_range = (chart.offset + info_offset + res.config.offset) as f64..res.track_length;
 
         let judge = Judge::new(&chart);
 
@@ -366,7 +366,7 @@ impl GameScene {
     }
 
     fn ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
-        let time = tm.now() as f32;
+        let time = tm.now();
         let p = match self.state {
             State::Starting => {
                 if time <= Self::BEFORE_TIME {
@@ -381,7 +381,7 @@ impl GameScene {
                 let t = time - self.res.track_length - WAIT_TIME;
                 1. - (t / (AFTER_TIME + 0.3)).min(1.).powi(2)
             }
-        };
+        } as f32;
         let res = &mut self.res;
         let eps = 2e-2 / res.aspect_ratio;
         let top = -1. / res.aspect_ratio;
@@ -420,21 +420,20 @@ impl GameScene {
 
             let margin = 0.03;
 
-            let unit_h = ui.text("0").measure_using(&PGR_FONT).h;
+            let legacy_aui = !res.info.use_attach_ui_fix.unwrap_or_default();
+            let unit_h = if legacy_aui { ui.text("0").measure_using(&PGR_FONT).h } else { 0. };
 
             // score
             let h = 0.07;
             let score_top = top + eps * 2.2 - (1. - p) * 0.4;
             let score_right = 1. - margin;
             let score = format!("{:07}", self.judge.score());
-            let ct = ui.text(&score).size(0.8).measure_using(&PGR_FONT).center();
-            self.chart.with_element(
-                ui,
-                res,
-                UIElement::Score,
-                Some((score_right - ct.x, score_top + ct.y)),
-                Some((score_right, score_top)),
-                |ui, c| {
+            let scale_point = legacy_aui.then(|| {
+                let ct = ui.text(&score).size(0.8).measure_using(&PGR_FONT).center();
+                (score_right - ct.x, score_top + ct.y)
+            });
+            self.chart
+                .with_element(ui, res, UIElement::Score, scale_point, (score_right, score_top), |ui, c| {
                     ui.text(&score)
                         .pos(score_right, score_top)
                         .anchor(1., 0.)
@@ -449,15 +448,14 @@ impl GameScene {
                             .color(Color { a: c.a * 0.7, ..c })
                             .draw_using(&PGR_FONT);
                     }
-                },
-            );
+                });
 
             self.chart.with_element(
                 ui,
                 res,
                 UIElement::Pause,
-                Some((pause_center.x, pause_center.y)),
-                Some((pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2.)),
+                legacy_aui.then(|| (pause_center.x, pause_center.y)),
+                (pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2.),
                 |ui, c| {
                     let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
                     ui.fill_rect(r, c);
@@ -466,66 +464,84 @@ impl GameScene {
                 },
             );
             if self.judge.combo() >= 3 {
-                let combo_top = top + eps * 2. - (1. - p) * 0.4;
-                let btm = self.chart.with_element(
-                    ui,
-                    res,
-                    UIElement::ComboNumber,
-                    Some((0., combo_top + unit_h / 2.)),
-                    Some((0., combo_top + unit_h / 2.)),
-                    |ui, c| {
-                        ui.text(self.judge.combo().to_string())
-                            .pos(0., combo_top)
-                            .anchor(0.5, 0.)
+                if legacy_aui {
+                    let combo_top = top + eps * 2. - (1. - p) * 0.4;
+                    let btm = self
+                        .chart
+                        .with_element(ui, res, UIElement::ComboNumber, None, (0., combo_top + unit_h / 2.), |ui, c| {
+                            ui.text(self.judge.combo().to_string())
+                                .pos(0., combo_top)
+                                .anchor(0.5, 0.)
+                                .color(c)
+                                .draw_using(&PGR_FONT)
+                                .bottom()
+                        });
+                    let combo_top = btm + 0.01;
+                    self.chart
+                        .with_element(ui, res, UIElement::Combo, None, (0., combo_top + unit_h * 0.2), |ui, c| {
+                            ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                                .pos(0., combo_top)
+                                .anchor(0.5, 0.)
+                                .size(0.4)
+                                .color(c)
+                                .draw_using(&PGR_FONT);
+                        });
+                } else {
+                    let combo = self.judge.combo().to_string();
+                    let ct = ui.text(&combo).size(1.0).measure().center();
+                    let combo_y = top + eps * 2. - (1. - p) * 0.4 + ct.y;
+                    let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, None, (0., combo_y), |ui, c| {
+                        ui.text(&combo)
+                            .pos(0., combo_y)
+                            .anchor(0.5, 0.5)
+                            .size(1.0)
                             .color(c)
                             .draw_using(&PGR_FONT)
                             .bottom()
-                    },
-                );
-                let combo_top = btm + 0.01;
-                self.chart.with_element(
-                    ui,
-                    res,
-                    UIElement::Combo,
-                    Some((0., combo_top + unit_h * 0.2)),
-                    Some((0., combo_top + unit_h * 0.2)),
-                    |ui, c| {
+                    });
+                    let ct = ui.text("COMBO").size(0.4).measure().center();
+                    let combo_top = btm + 0.01 + ct.y;
+                    self.chart.with_element(ui, res, UIElement::Combo, None, (0., combo_top), |ui, c| {
                         ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
                             .pos(0., combo_top)
-                            .anchor(0.5, 0.)
+                            .anchor(0.5, 0.5)
                             .size(0.4)
                             .color(c)
                             .draw_using(&PGR_FONT);
-                    },
-                );
+                    });
+                }
             }
             // magic to make score visible, refer to phira/src/rate.rs#L219
             ui.text("").draw_using(&PGR_FONT);
             let lf = -1. + margin;
             let bt = -top - eps * 2.8 + (1. - p) * 0.4;
-            let ct = ui.text(&res.info.name).size(0.5).measure().center();
-            self.chart
-                .with_element(ui, res, UIElement::Name, Some((lf + ct.x, bt - ct.y)), Some((lf, bt)), |ui, c| {
-                    ui.text(&res.info.name)
-                        .pos(lf, bt)
-                        .anchor(0., 1.)
-                        .size(0.5)
-                        .color(c)
-                        .max_width(0.8)
-                        .draw();
-                });
+            let scale_point = legacy_aui.then(|| {
+                let ct = ui.text(&res.info.name).size(0.5).measure().center();
+                (lf + ct.x, bt - ct.y)
+            });
+            self.chart.with_element(ui, res, UIElement::Name, scale_point, (lf, bt), |ui, c| {
+                ui.text(&res.info.name)
+                    .pos(lf, bt)
+                    .anchor(0., 1.)
+                    .size(0.5)
+                    .color(c)
+                    .max_width(0.8)
+                    .draw();
+            });
 
-            let ct = ui.text(&res.info.level).size(0.5).measure().center();
-            self.chart
-                .with_element(ui, res, UIElement::Level, Some((-lf - ct.x, bt - ct.y)), Some((-lf, bt)), |ui, c| {
-                    ui.text(&res.info.level).pos(-lf, bt).anchor(1., 1.).size(0.5).color(c).draw();
-                });
+            let scale_point = legacy_aui.then(|| {
+                let ct = ui.text(&res.info.level).size(0.5).measure().center();
+                (-lf - ct.x, bt - ct.y)
+            });
+            self.chart.with_element(ui, res, UIElement::Level, scale_point, (-lf, bt), |ui, c| {
+                ui.text(&res.info.level).pos(-lf, bt).anchor(1., 1.).size(0.5).color(c).draw();
+            });
 
             let hw = 0.003;
             let height = eps * 1.0;
-            let dest = (2. * res.time / res.track_length).clamp(0., 2.);
+            let dest = (2. * res.time / res.track_length).clamp(0., 2.) as f32;
             self.chart
-                .with_element(ui, res, UIElement::Bar, Some((-1., top + height / 2.)), Some((-1., top + height / 2.)), |ui, color| {
+                .with_element(ui, res, UIElement::Bar, Some((-1., top + height / 2.)), (-1., top + height / 2.), |ui, color| {
                     ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
                     ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
                 });
@@ -588,7 +604,7 @@ impl GameScene {
                 }
                 let mut pos = self.music.position();
                 if self.mode == GameMode::Exercise {
-                    pos = tm.now() as f32;
+                    pos = tm.now();
                 }
                 if clicked.is_some_and(|it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
                     debug!("recreating music");
@@ -609,14 +625,15 @@ impl GameScene {
                     }
                     Some(0) => {
                         reset!(self, res, tm);
+                        if self.mode == GameMode::Exercise {
+                            self.judge.advance_to(&mut self.chart, self.exercise_range.start);
+                        }
                         #[cfg(target_env = "ohos")]
                         miniquad::native::set_interceptor_state(true);
                     }
                     Some(1) => {
-                        if self.mode == GameMode::Exercise
-                            && (tm.now() > self.exercise_range.end as f64 || tm.now() < self.exercise_range.start as f64)
-                        {
-                            tm.seek_to(self.exercise_range.start as f64);
+                        if self.mode == GameMode::Exercise && (tm.now() > self.exercise_range.end || tm.now() < self.exercise_range.start) {
+                            tm.seek_to(self.exercise_range.start);
                             self.music.seek_to(self.exercise_range.start)?;
                             pos = self.exercise_range.start;
                         }
@@ -655,12 +672,12 @@ impl GameScene {
                 let h = 0.06;
                 let eh = 0.12;
                 let rad = 0.03;
-                let sp = self.offset().min(0.);
+                let sp = self.offset().min(0.) as f64;
                 ui.fill_rect(Rect::new(-hw, -h, hw * 2., h * 2.), GRAY);
-                let st = -hw + (self.exercise_range.start - sp) / (self.res.track_length - sp) * hw * 2.;
-                let en = -hw + (self.exercise_range.end - sp) / (self.res.track_length - sp) * hw * 2.;
-                let t = tm.now() as f32;
-                let cur = -hw + (t - sp) / (self.res.track_length - sp) * hw * 2.;
+                let st = -hw + ((self.exercise_range.start - sp) / (self.res.track_length - sp)) as f32 * hw * 2.;
+                let en = -hw + ((self.exercise_range.end - sp) / (self.res.track_length - sp)) as f32 * hw * 2.;
+                let t = tm.now();
+                let cur = -hw + ((t - sp) / (self.res.track_length - sp)) as f32 * hw * 2.;
                 ui.fill_rect(Rect::new(st, -h, en - st, h * 2.), WHITE);
                 ui.fill_rect(Rect::new(st, -eh, 0., eh + h).feather(0.005), BLUE);
                 ui.fill_circle(st, -eh, rad, BLUE);
@@ -689,11 +706,11 @@ impl GameScene {
                         .find(|it| it.phase == TouchPhase::Started && r.contains(it.position))
                         .map(|it| (0, it.id));
                 }
-                ui.text(fmt_time(t)).pos(0., -0.23).anchor(0.5, 0.).size(0.8).draw();
+                ui.text(fmt_time(t as f32)).pos(0., -0.23).anchor(0.5, 0.).size(0.8).draw();
                 if let Some((ctrl, id)) = &self.exercise_press {
                     if let Some(touch) = Judge::get_touches().iter().rfind(|it| it.id == *id) {
                         let x = touch.position.x;
-                        let p = (x + hw) / (hw * 2.) * (self.res.track_length - sp) + sp;
+                        let p = (x + hw) as f64 / (hw * 2.) as f64 * (self.res.track_length - sp) + sp;
                         let p = if self.res.track_length - sp <= 3. || *ctrl == 0 {
                             p.clamp(sp, self.res.track_length)
                         } else {
@@ -707,8 +724,12 @@ impl GameScene {
                             )
                         };
                         if *ctrl == 0 {
-                            tm.seek_to(p as f64);
+                            tm.seek_to(p);
                             self.music.seek_to(p)?;
+                            self.bad_notes.clear();
+                            self.judge.reset();
+                            self.chart.reset();
+                            self.res.judge_line_color = self.res.res_pack.info.color_perfect();
                         } else {
                             *(if *ctrl == -1 {
                                 &mut self.exercise_range.start
@@ -724,7 +745,7 @@ impl GameScene {
                 ui.dy(0.2);
                 let r = ui.text(tl!("to")).size(0.8).anchor(0.5, 0.).draw();
                 let mut tx = ui
-                    .text(fmt_time(self.exercise_range.start))
+                    .text(fmt_time(self.exercise_range.start as f32))
                     .pos(r.x - 0.02, 0.)
                     .anchor(1., 0.)
                     .size(0.8)
@@ -736,7 +757,7 @@ impl GameScene {
                 tx.draw();
 
                 let mut tx = ui
-                    .text(fmt_time(self.exercise_range.end))
+                    .text(fmt_time(self.exercise_range.end as f32))
                     .pos(r.right() + 0.02, 0.)
                     .size(0.8)
                     .color(BLACK);
@@ -882,20 +903,20 @@ impl Scene for GameScene {
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         self.res.audio.recover_if_needed()?;
         if matches!(self.state, State::Playing) {
-            tm.update(self.music.position() as f64);
+            tm.update(self.music.position());
         }
-        if self.mode == GameMode::Exercise && tm.now() > self.exercise_range.end as f64 && !tm.paused() {
+        if self.mode == GameMode::Exercise && tm.now() > self.exercise_range.end && !tm.paused() {
             let state = self.state.clone();
             reset!(self, self.res, tm);
             self.state = state;
-            tm.seek_to(self.exercise_range.start as f64);
+            tm.seek_to(self.exercise_range.start);
             tm.pause();
             self.music.pause()?;
             #[cfg(target_env = "ohos")]
             miniquad::native::set_interceptor_state(false);
         }
         let offset = self.offset();
-        let time = tm.now() as f32;
+        let time = tm.now();
         let time = match self.state {
             State::Starting => {
                 if time >= Self::BEFORE_TIME {
@@ -903,7 +924,7 @@ impl Scene for GameScene {
                     self.state = State::BeforeMusic;
                     tm.reset();
                     tm.seek_to(if self.mode == GameMode::Exercise {
-                        self.exercise_range.start as f64
+                        self.exercise_range.start
                     } else {
                         offset.min(0.) as f64
                     });
@@ -912,7 +933,7 @@ impl Scene for GameScene {
                         tm.pause();
                         self.first_in = false;
                     }
-                    tm.now() as f32
+                    tm.now()
                 } else {
                     #[cfg(target_os = "windows")]
                     {
@@ -926,11 +947,11 @@ impl Scene for GameScene {
                         self.res.emitter.emitter.config = emitter_config;
                         self.res.emitter.emitter_square.config = emitter_square_config;
                     }
-                    self.res.alpha = 1. - (1. - time / Self::BEFORE_TIME).powi(3);
+                    self.res.alpha = (1. - (1. - time / Self::BEFORE_TIME).powi(3)) as f32;
                     if self.mode == GameMode::Exercise {
                         self.exercise_range.start
                     } else {
-                        offset
+                        offset as f64
                     }
                 }
             }
@@ -1023,11 +1044,11 @@ impl Scene for GameScene {
                         GameMode::Exercise => None,
                     };
                 }
-                self.res.alpha = 1. - (t / AFTER_TIME).min(1.).powi(2);
+                self.res.alpha = (1. - (t / AFTER_TIME).min(1.).powi(2)) as f32;
                 self.res.track_length
             }
         };
-        let time = (time - offset).max(0.);
+        let time = (time - offset as f64).max(0.);
         self.res.time = time;
         if !tm.paused() && self.pause_rewind.is_none() && self.mode != GameMode::View {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
@@ -1039,15 +1060,16 @@ impl Scene for GameScene {
         }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 && self.res.config.ap_fc_indicator {
-            Color::from_hex_argb(if counts[1] == 0 {
-                self.res.res_pack.info.color_perfect
+            if counts[1] == 0 {
+                self.res.res_pack.info.color_perfect()
             } else {
-                self.res.res_pack.info.color_good
-            })
+                self.res.res_pack.info.color_good()
+            }
         } else {
             WHITE
         };
         if !self.dead
+            && matches!(self.state, State::Playing)
             && (self.res.config.mods.contains(Mods::INSTANT_DEATH_AP) && counts[1] + counts[2] + counts[3] > 0
                 || self.res.config.mods.contains(Mods::INSTANT_DEATH_FC) && counts[2] + counts[3] > 0)
         {
@@ -1081,13 +1103,13 @@ impl Scene for GameScene {
                 res.time -= 1.;
                 let dst = (self.music.position() - 1.).max(0.);
                 self.music.seek_to(dst)?;
-                tm.seek_to(dst as f64);
+                tm.seek_to(dst);
             }
             if is_key_pressed(KeyCode::Right) && res.config.use_keyboard {
                 res.time += 5.;
                 let dst = (self.music.position() + 5.).min(res.track_length);
                 self.music.seek_to(dst)?;
-                tm.seek_to(dst as f64);
+                tm.seek_to(dst);
             }
             if is_key_pressed(KeyCode::Q) {
                 self.should_exit = true;
@@ -1101,7 +1123,7 @@ impl Scene for GameScene {
             match id.as_str() {
                 "exercise_start" => {
                     if let Some(t) = parse_time(&text) {
-                        if !(offset..self.res.track_length.min(self.exercise_range.end - 3.).max(offset)).contains(&t) {
+                        if !(offset as f64..self.res.track_length.min(self.exercise_range.end - 3.).max(offset as f64)).contains(&t) {
                             show_message(tl!("ex-time-out-of-range")).error();
                         } else {
                             self.exercise_range.start = t;
@@ -1113,7 +1135,7 @@ impl Scene for GameScene {
                 }
                 "exercise_end" => {
                     if let Some(t) = parse_time(&text) {
-                        if !((self.exercise_range.start + 3.).max(offset).min(self.res.track_length)..self.res.track_length).contains(&t) {
+                        if !((self.exercise_range.start + 3.).max(offset as f64).min(self.res.track_length)..self.res.track_length).contains(&t) {
                             show_message(tl!("ex-time-out-of-range")).error();
                         } else {
                             self.exercise_range.end = t;
@@ -1136,11 +1158,11 @@ impl Scene for GameScene {
                 ..touch.clone()
             };
             if self.exercise_btns.0.touch(&touch) {
-                request_input("exercise_start", InputBox::new().default_text(fmt_time(self.exercise_range.start)));
+                request_input("exercise_start", InputBox::new().default_text(fmt_time(self.exercise_range.start as f32)));
                 return Ok(true);
             }
             if self.exercise_btns.1.touch(&touch) {
-                request_input("exercise_end", InputBox::new().default_text(fmt_time(self.exercise_range.end)));
+                request_input("exercise_end", InputBox::new().default_text(fmt_time(self.exercise_range.end as f32)));
                 return Ok(true);
             }
         }

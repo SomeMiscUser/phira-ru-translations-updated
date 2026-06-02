@@ -24,8 +24,10 @@ illu-file = 插图文件
 unlock-file = 解锁动画文件
 tip = Tip
 intro = 简介
+how-to-add-collaborator = 如何添加协作者
 tags = 标签
 tag-exists = 标签已存在
 rpe-170-speed = 新速度缓动
+attach-ui-fix = UI 绑定修复
 
 illegal-input = 非法输入

@@ -70,9 +70,9 @@ pub struct ResPackInfo {
     #[serde(default = "default_tinted")]
     pub hit_fx_tinted: bool,
 
-    pub hold_atlas: (u32, u32),
+    pub hold_atlas: (u16, u16),
     #[serde(rename = "holdAtlasMH")]
-    pub hold_atlas_mh: (u32, u32),
+    pub hold_atlas_mh: (u16, u16),
 
     #[serde(default)]
     pub hold_keep_head: bool,
@@ -82,18 +82,49 @@ pub struct ResPackInfo {
     pub hold_compact: bool,
 
     #[serde(default = "default_perfect")]
-    pub color_perfect: u32,
+    color_perfect: u32,
     #[serde(default = "default_good")]
-    pub color_good: u32,
+    color_good: u32,
 
     #[serde(default)]
     pub description: String,
 }
 
+fn parse_color_guess_alpha(c: u32) -> Color {
+    if c > 0xffffff {
+        Color::from_hex_argb(c)
+    } else {
+        Color::from_hex_rgb(c)
+    }
+}
+
 impl ResPackInfo {
+    pub fn verify(&self) -> Result<()> {
+        if self.name.is_empty() {
+            bail!("empty name");
+        }
+        if self.name.len() > 100 {
+            bail!("name too long");
+        }
+        if self.description.len() > 1000 {
+            bail!("description too long");
+        }
+        if !(1..=10240).contains(&self.hit_fx.0.saturating_mul(self.hit_fx.1)) {
+            bail!("Invalid hit_fx");
+        }
+        Ok(())
+    }
+    pub fn color_perfect(&self) -> Color {
+        parse_color_guess_alpha(self.color_perfect)
+    }
+
+    pub fn color_good(&self) -> Color {
+        parse_color_guess_alpha(self.color_good)
+    }
+
     pub fn fx_perfect(&self) -> Color {
         if self.hit_fx_tinted {
-            Color::from_hex_argb(self.color_perfect)
+            self.color_perfect()
         } else {
             WHITE
         }
@@ -101,7 +132,7 @@ impl ResPackInfo {
 
     pub fn fx_good(&self) -> Color {
         if self.hit_fx_tinted {
-            Color::from_hex_argb(self.color_good)
+            self.color_good()
         } else {
             WHITE
         }
@@ -114,19 +145,19 @@ pub struct NoteStyle {
     pub flick: SafeTexture,
     pub drag: SafeTexture,
     pub hold_body: Option<SafeTexture>,
-    pub hold_atlas: (u32, u32),
+    pub hold_atlas: (u16, u16),
 }
 
 impl NoteStyle {
     pub fn verify(&self) -> Result<()> {
-        if (self.hold_atlas.0 + self.hold_atlas.1) as f32 >= self.hold.height() {
+        if self.hold_atlas.0.saturating_add(self.hold_atlas.1) as f32 >= self.hold.height() {
             bail!("Invalid atlas");
         }
         Ok(())
     }
 
     #[inline]
-    fn to_uv(&self, t: u32) -> f32 {
+    fn to_uv(&self, t: u16) -> f32 {
         t as f32 / self.hold.height()
     }
 
@@ -183,6 +214,7 @@ impl ResourcePack {
             };
         }
         let info: ResPackInfo = serde_yaml::from_str(&String::from_utf8(fs.load_file("info.yml").await.context("Missing info.yml")?)?)?;
+        info.verify()?;
         let mut note_style = NoteStyle {
             click: load_tex!("click.png"),
             hold: load_tex!("hold.png"),
@@ -201,6 +233,7 @@ impl ResourcePack {
             hold_atlas: info.hold_atlas_mh,
         };
         note_style_mh.verify()?;
+
         if info.hold_repeat {
             fn get_body(style: &mut NoteStyle) {
                 let pixels = style.hold.get_texture_data();
@@ -209,7 +242,7 @@ impl ResourcePack {
                 let atlas = style.hold_atlas;
                 let res = Texture2D::from_rgba8(
                     width,
-                    height - atlas.0 as u16 - atlas.1 as u16,
+                    height - atlas.0 - atlas.1,
                     &pixels.bytes[(atlas.0 as usize * width as usize * 4)..(pixels.bytes.len() - atlas.1 as usize * width as usize * 4)],
                 );
                 let context = unsafe { get_internal_gl() }.quad_context;
@@ -379,7 +412,7 @@ pub struct Resource {
     pub last_vp: (i32, i32, i32, i32),
     pub note_width: f32,
 
-    pub time: f32,
+    pub time: f64,
 
     pub alpha: f32,
     pub judge_line_color: Color,
@@ -401,7 +434,7 @@ pub struct Resource {
 
     pub audio: AudioManager,
     pub music: AudioClip,
-    pub track_length: f32,
+    pub track_length: f64,
     pub sfx_click: Sfx,
     pub sfx_drag: Sfx,
     pub sfx_flick: Sfx,
@@ -484,7 +517,7 @@ impl Resource {
         let sfx_flick = audio.create_sfx(res_pack.sfx_flick.clone(), buffer_size)?;
 
         let aspect_ratio = config.aspect_ratio.unwrap_or(info.aspect_ratio);
-        let note_width = config.note_scale * NOTE_WIDTH_RATIO_BASE;
+        let note_width = config.note_scale * NOTE_WIDTH_RATIO_BASE as f32;
         let note_scale = config.note_scale;
 
         let emitter = ParticleEmitter::new(&res_pack, note_scale, res_pack.info.hide_particles)?;

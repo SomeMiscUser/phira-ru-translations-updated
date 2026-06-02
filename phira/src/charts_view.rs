@@ -235,7 +235,7 @@ impl ChartsView {
                         }
                         if let Some(sel) = &mut self.multi_select {
                             button_hit();
-                            let r = chart.to_ref();
+                            let r = chart.to_bare_ref();
                             let mut removed = false;
                             sel.retain(|it| {
                                 if it == &r {
@@ -278,11 +278,10 @@ impl ChartsView {
                             },
                             Arc::clone(&self.icons),
                             self.rank_icons.clone(),
-                            get_data()
-                                .charts
-                                .iter()
-                                .find(|it| Some(&it.local_path) == download_path.as_ref())
-                                .map(|it| it.mods)
+                            chart
+                                .local_path
+                                .as_ref()
+                                .and_then(|path| get_data().charts.iter().find(|it| &it.local_path == path).map(|it| it.mods))
                                 .unwrap_or_default(),
                         );
                         self.transit = Some(TransitState {
@@ -348,13 +347,36 @@ impl ChartsView {
         let refreshed = self.can_refresh && self.scroll.y_scroller.pulled;
         self.chart_menu.update(t);
         self.scroll.update(t);
+        if self.multi_select.is_none() {
+            if let Some(charts) = &mut self.charts {
+                for (id, item) in charts.iter_mut().enumerate() {
+                    if item.chart.is_some() && item.btn.update_long_touch(t, &mut item.long_touch) {
+                        self.scroll.y_scroller.halt();
+                        self.editing_chart = Some(id);
+                        let mut options = vec![tl!("select").into_owned()];
+                        if self.allow_edit {
+                            options.extend([
+                                tl!("move-to-first").into_owned(),
+                                tl!("move-to-last").into_owned(),
+                                tl!("move-before").into_owned(),
+                                tl!("move-after").into_owned(),
+                            ]);
+                        }
+                        self.chart_menu.set_options(options);
+                        self.chart_menu.set_selected(usize::MAX);
+                        self.need_show_chart_menu = true;
+                        break;
+                    }
+                }
+            }
+        }
         if self.chart_menu.changed() {
             let has_header = self.has_header();
             let editing = self.editing_chart.unwrap();
             match self.chart_menu.selected() {
                 0 => {
                     let chart = self.charts.as_ref().unwrap()[editing].chart.as_ref().unwrap();
-                    self.multi_select = Some([chart.to_ref()].into());
+                    self.multi_select = Some([chart.to_bare_ref()].into());
                 }
                 1 => {
                     self.movement = Some((editing - has_header as usize, 0));
@@ -473,7 +495,7 @@ impl ChartsView {
 
                                 if let Some(chart) = &mut item.chart {
                                     let selected = self.multi_select.as_ref().and_then(|set| {
-                                        let chart_ref = chart.to_ref();
+                                        let chart_ref = chart.to_bare_ref();
                                         set.iter().position(|it| it == &chart_ref)
                                     });
                                     if selected.is_some() {

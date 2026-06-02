@@ -256,6 +256,18 @@ impl RectButton {
         }
         false
     }
+
+    pub fn update_long_touch(&self, t: f32, state: &mut LongTouchState) -> bool {
+        if self.id.is_some() {
+            if let Some((_, start_time)) = state.start {
+                if t > start_time + 0.5 {
+                    state.reset();
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 #[derive(Clone)]
@@ -428,6 +440,19 @@ impl DRectButton {
 
     pub fn long_touch(&mut self, touch: &Touch, t: f32, state: &mut LongTouchState) -> bool {
         if self.inner.long_touch(touch, t, state) {
+            self.last_touching = false;
+            self.start_time = Some(t);
+            if self.play_sound {
+                button_hit();
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_long_touch(&mut self, t: f32, state: &mut LongTouchState) -> bool {
+        if self.inner.update_long_touch(t, state) {
             self.last_touching = false;
             self.start_time = Some(t);
             if self.play_sound {

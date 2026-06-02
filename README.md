@@ -19,11 +19,11 @@ If you want to talk with us in depth, email [contact@phira.cn](mailto://contact@
 
 ## Translation
 
-See our [Weblate](https://hosted.weblate.org/projects/phira/) page for the latest translation progress. You can easily contribute to translations there.
+See our [Weblate](https://hosted.weblate.org/engage/phira/) page for the latest translation progress. You can easily contribute to translations there.
 
-~~If you want to add your language to Phira, please check [this](https://github.com/TeamFlos/phira/pull/201#issuecomment-1783356944) out.~~
+![Translation Progress](https://hosted.weblate.org/widget/phira/svg-badge.svg)
 
-~~Be free to create issues if there's any problem with the current translation.~~
+![Translation Status](https://hosted.weblate.org/widget/phira/multi-auto.svg)
 
 ## Star History
 

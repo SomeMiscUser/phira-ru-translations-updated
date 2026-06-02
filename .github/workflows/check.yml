@@ -23,9 +23,9 @@ jobs:
           - name: macOS
             os: macos-14
             target: aarch64-apple-darwin
-          # - name: iOS
-          #   os: macos-14
-          #   target: aarch64-apple-ios
+          - name: iOS
+            os: macos-14
+            target: aarch64-apple-ios
 
     steps:
       - uses: actions/checkout@v4
@@ -126,4 +126,4 @@ jobs:
           cache-all-crates: "true"
 
       - name: Run tests
-        run: cargo test --all
+        run: cargo test --workspace --no-fail-fast

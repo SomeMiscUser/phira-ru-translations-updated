@@ -6,15 +6,16 @@ use crate::{
     mp::MPPanel,
     page::{ExportInfo, HomePage, NextPage, Page, ResPackItem, SharedState},
     save_data,
-    scene::{confirm_dialog, import_chart_to, ImportWarnings, TEX_BACKGROUND, TEX_ICON_BACK},
+    scene::{confirm_dialog, import_chart_to, parse_warnings_to_string, TEX_BACKGROUND, TEX_ICON_BACK},
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::ResPackInfo,
     ext::{unzip_into, RectExt, SafeTexture},
     info::ChartInfo,
+    parse::ParseWarnings,
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -63,7 +64,7 @@ pub struct MainScene {
 
     pages: Vec<Box<dyn Page>>,
 
-    import_task: Option<Task<Result<(LocalChart, ImportWarnings)>>>,
+    import_task: Option<Task<Result<(LocalChart, ParseWarnings)>>>,
 
     mp_btn: RectButton,
     mp_icon: SafeTexture,
@@ -82,7 +83,7 @@ pub struct MainScene {
 }
 
 enum ImportChart {
-    Imported(Box<LocalChart>, ImportWarnings),
+    Imported(Box<LocalChart>, ParseWarnings),
     Skipped(String),
 }
 
@@ -346,7 +347,7 @@ impl Scene for MainScene {
                         show_error(err.context(itl!("import-failed")));
                     }
                     Ok((chart, warnings)) => {
-                        if let Some(warn) = warnings.to_string() {
+                        if let Some(warn) = parse_warnings_to_string(&warnings) {
                             Dialog::plain(itl!("warning"), warn).show();
                         }
                         show_message(itl!("import-success")).ok();
@@ -416,21 +417,13 @@ impl Scene for MainScene {
                 "_import_respack" => {
                     let root = dir::respacks()?;
                     let dir = prpr::dir::Dir::new(&root)?;
-                    let mut dir_id = String::new();
+                    let mut dir_id: Option<String> = None;
                     let item: Result<ResPackItem> = (|| {
                         let config = {
                             let mut zip = zip::ZipArchive::new(BufReader::new(File::open(&file)?))?;
                             let config: ResPackInfo =
                                 serde_yaml::from_reader(zip.by_name("info.yml").context("missing info.yml")?).context("invalid info.yml")?;
-                            if config.name.is_empty() {
-                                bail!("empty name");
-                            }
-                            if config.name.len() > 100 {
-                                bail!("name too long");
-                            }
-                            if config.description.len() > 1000 {
-                                bail!("description too long");
-                            }
+                            config.verify()?;
                             let mut buffer = Vec::new();
                             for file in [
                                 "click.png",
@@ -469,18 +462,21 @@ impl Scene for MainScene {
                         while dir.exists(uuid.to_string())? {
                             uuid = Uuid::new_v4();
                         }
-                        dir_id = uuid.to_string();
-                        dir.create_dir_all(&dir_id)?;
-                        let dir = dir.open_dir(&dir_id)?;
+                        let id = uuid.to_string();
+                        dir.create_dir_all(&id)?;
+                        let dir = dir.open_dir(&id)?;
+                        dir_id = Some(id.clone());
                         unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
-                        get_data_mut().respacks.push(dir_id.clone());
+                        get_data_mut().respacks.push(id.clone());
                         save_data()?;
-                        Ok(ResPackItem::new(Some(format!("{root}/{dir_id}").into()), config.name))
+                        Ok(ResPackItem::new(Some(format!("{root}/{id}").into()), config.name))
                     })();
                     match item {
                         Err(err) => {
-                            dir.remove_dir_all(&dir_id)?;
                             show_error(err.context(itl!("import-respack-failed")));
+                            if let Some(id) = &dir_id {
+                                dir.remove_dir_all(id)?;
+                            }
                         }
                         Ok(item) => {
                             RESPACK_ITEM.with(|it| *it.borrow_mut() = Some(item));
@@ -587,7 +583,7 @@ impl Scene for MainScene {
                         for chart in self.batch_imported_charts.drain(..) {
                             match chart {
                                 ImportChart::Imported(chart, warnings) => {
-                                    if let Some(warn) = warnings.to_string() {
+                                    if let Some(warn) = parse_warnings_to_string(&warnings) {
                                         warning_messages.push(format!("{}\n{warn}", chart.info.name));
                                     }
                                     data.charts.push(*chart);

@@ -1,7 +1,13 @@
 prpr_l10n::tl_file!("chart_info");
 
 use super::Ui;
-use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message, ui::InputParams};
+use crate::{
+    core::BOLD_FONT,
+    ext::{open_url, parse_time},
+    info::ChartInfo,
+    scene::show_message,
+    ui::InputParams,
+};
 use anyhow::Result;
 use inputbox::InputMode;
 use macroquad::math::Rect;
@@ -121,7 +127,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 if st + 20. < en {
                     return Err(tl!("preview-too-long"));
                 }
-                Ok((st, en))
+                Ok((st as f32, en as f32))
             }() {
                 Err(err) => {
                     show_message(err).error();
@@ -212,6 +218,21 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         }
         dy!(r.h + s);
 
+        let r = ui.text(tl!("attach-ui-fix")).size(0.47).anchor(1., 0.).draw();
+        let r = Rect::new(0.02, r.y - 0.01, r.h + 0.02, r.h + 0.02);
+        let check_str = match info.use_attach_ui_fix {
+            Some(true) => "\u{2713}",
+            Some(false) => "x",
+            None => "",
+        };
+        if ui.button("attachui", r, check_str.to_string()) {
+            const OPTIONS: [Option<bool>; 3] = [None, Some(true), Some(false)];
+            let next = OPTIONS.iter().cycle().skip_while(|&&x| x != info.use_attach_ui_fix).nth(1).unwrap();
+            info.use_attach_ui_fix = *next;
+            edit.updated = true;
+        }
+        dy!(r.h + s);
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             use crate::scene::{request_file, return_file, take_file};
@@ -285,6 +306,14 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 length: len,
             },
         );
+        dy!(r.h + s);
+
+        let ir = Rect::new(0., r.y, r.right(), r.h);
+        if ui.button("collab", ir, tl!("how-to-add-collaborator").to_string()) {
+            open_url("https://teamflos.github.io/phira-docs/chart-management/collaborator.html").ok();
+        }
+        dy!(r.h + s);
+
         ui.dx(-0.02);
     });
     (width, sy)

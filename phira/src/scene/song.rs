@@ -8,7 +8,8 @@ use super::{
 use crate::{
     charts_view::NEED_UPDATE,
     client::{
-        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN,
+        basic_client_builder, recv_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, User,
+        UserManager, CLIENT_TOKEN,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -30,6 +31,7 @@ use core::f32;
 use futures_util::StreamExt;
 use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
+use once_cell::sync::Lazy;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
@@ -49,6 +51,7 @@ use prpr::{
     time::TimeManager,
     ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, Ui, UI_AUDIO},
 };
+use regex::Regex;
 use reqwest::Method;
 use sanitize_filename::sanitize;
 use sasa::{AudioClip, Frame, Music, MusicParams};
@@ -58,7 +61,7 @@ use sha2::{Digest, Sha256};
 use std::{
     any::Any,
     borrow::Cow,
-    collections::{hash_map, HashMap, VecDeque},
+    collections::{hash_map, BTreeMap, HashMap, VecDeque},
     fs::File,
     io::{BufWriter, Cursor, Seek, Write},
     path::Path,
@@ -82,7 +85,56 @@ static CONFIRM_CKSUM: AtomicBool = AtomicBool::new(false);
 static UPLOAD_NOT_SAVED: AtomicBool = AtomicBool::new(false);
 static CONFIRM_OVERWRITE: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
+static CONFIRM_AUTOCOMPLETE: AtomicBool = AtomicBool::new(false);
+static SKIP_AUTOCOMPLETE: AtomicBool = AtomicBool::new(false);
 pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
+
+/// Matches any `@name#id (role)` or `@name#id` or `@name (role)` or `@name`.
+/// Parentheses may be ASCII `()` or fullwidth `（）`; whitespace before `(` is optional.
+/// Groups: 1=name, 2=id (optional), 3=role (optional)
+static MENTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s#@(（]+)(?:#(\d+))?(?:\s*[（(]([^)）]+)[)）])?").unwrap());
+
+/// Parse all `@name#id` resolved collaborator mentions and return `(id, role)` pairs.
+fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
+    use std::collections::btree_map::Entry;
+
+    let mut result = BTreeMap::new();
+    for (id, role) in MENTION_RE.captures_iter(intro).filter_map(|cap| {
+        let id: i32 = cap.get(2)?.as_str().parse().ok()?;
+        let role = cap.get(3).map(|m| m.as_str().to_owned());
+        Some((id, role))
+    }) {
+        match result.entry(id) {
+            Entry::Vacant(e) => {
+                e.insert(role);
+            }
+            Entry::Occupied(mut e) => {
+                if e.get().is_none() && role.is_some() {
+                    e.insert(role);
+                }
+            }
+        }
+    }
+    result
+}
+
+/// Find all unresolved `@name` or `@name (role)` mentions (those missing `#id`).
+/// Returns `(start, end, name)` byte-offset pairs into `intro`.
+/// Processing right-to-left preserves earlier offsets during replacement.
+fn find_unresolved_mentions(intro: &str) -> Vec<(usize, usize, String)> {
+    MENTION_RE
+        .captures_iter(intro)
+        .filter_map(|cap| {
+            if cap.get(2).is_some() {
+                // Already has #id — resolved
+                return None;
+            }
+            let m = cap.get(0)?;
+            let name = cap.get(1)?.as_str().to_owned();
+            Some((m.start(), m.end(), name))
+        })
+        .collect()
+}
 
 fn fade_in_time() -> Option<f32> {
     if get_data().prefer_reduced_motion {
@@ -356,6 +408,9 @@ pub struct SongScene {
 
     confirm_cancel_edit: Arc<AtomicBool>,
 
+    collaborators: BTreeMap<i32, Option<String>>,
+    autocomplete_task: Option<Task<Result<String>>>,
+
     export_task: Option<mpsc::Receiver<Result<()>>>,
 }
 
@@ -542,6 +597,9 @@ impl SongScene {
             toggle_fav_task: None,
 
             confirm_cancel_edit: Arc::default(),
+
+            collaborators: BTreeMap::new(),
+            autocomplete_task: None,
 
             export_task: None,
         }
@@ -804,7 +862,7 @@ impl SongScene {
         #[cfg(closed)]
         let rated = {
             let config = &get_data().config;
-            !config.offline_mode && can_rated && !mods.intersects(Mods::UNRATED) && config.speed >= 1.0 - 1e-3
+            !config.offline_mode && can_rated && !mods.intersects(Mods::UNRATED) && !config.use_keyboard && config.speed >= 1.0 - 1e-3
         };
         #[cfg(not(closed))]
         let rated = false;
@@ -859,10 +917,10 @@ impl SongScene {
                                     hash_map::Entry::Occupied(val) => *val.get(),
                                     hash_map::Entry::Vacant(place) => *place.insert(len.try_into().ok()?),
                                 };
-                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it + 1. / 20. >= t) {
+                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it as f64 + 1. / 20. >= t) {
                                     return None;
                                 }
-                                touch_last_update.insert(id, t);
+                                touch_last_update.insert(id, t as f32);
                                 if matches!(it.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
                                     touch_ids.remove(&it.id);
                                     id = !id;
@@ -871,18 +929,21 @@ impl SongScene {
                             })
                             .collect();
                         if !points.is_empty() {
-                            touches.push_back(TouchFrame { time: t, points });
+                            touches.push_back(TouchFrame { time: t as f32, points });
                         }
-                        if last_send_touch_time + 1. < t || touches.len() > 20 {
+                        if last_send_touch_time as f64 + 1. < t || touches.len() > 20 {
                             if touches.is_empty() {
-                                touches.push_back(TouchFrame { time: t, points: Vec::new() });
+                                touches.push_back(TouchFrame {
+                                    time: t as f32,
+                                    points: Vec::new(),
+                                });
                             }
                             let frames = Arc::new(touches.drain(..).collect());
                             client.blocking_send(ClientCommand::Touches { frames }).unwrap();
-                            last_send_touch_time = t;
+                            last_send_touch_time = t as f32;
                         }
                         judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
-                            time: it.0,
+                            time: it.0 as f32,
                             line_id: it.1,
                             note_id: it.2,
                             judgement: {
@@ -898,7 +959,7 @@ impl SongScene {
                                 }
                             },
                         }));
-                        if judges.len() > 10 || judges.front().is_some_and(|it| it.time + 0.6 < t) {
+                        if judges.len() > 10 || judges.front().is_some_and(|it| it.time + 0.6 < t as f32) {
                             let judges = Arc::new(judges.drain(..).collect());
                             client.blocking_send(ClientCommand::Judges { judges }).unwrap();
                         }
@@ -1098,7 +1159,7 @@ impl SongScene {
         }
         r.x += dx;
         if ui.button("save", r, tl!("edit-save")) {
-            self.save_edit();
+            self.try_save_with_autocomplete();
         }
 
         ui.ensure_touches()
@@ -1203,6 +1264,34 @@ impl SongScene {
                 }
                 dy!(0.14);
             }
+            if !self.collaborators.is_empty() {
+                dy!(ui.text(tl!("info-collaborators")).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
+                for (collab_id, role) in &self.collaborators {
+                    let c = 0.06;
+                    let s = 0.05;
+                    let r = ui.avatar(c, c, s, rt, UserManager::opt_avatar(*collab_id, &self.icons.user));
+                    if let Some((name, color)) = UserManager::name_and_color(*collab_id) {
+                        let name_r = ui
+                            .text(name)
+                            .pos(r.right() + 0.02, r.center().y - if role.is_some() { 0.01 } else { 0. })
+                            .anchor(0., 0.5)
+                            .no_baseline()
+                            .max_width(width - 0.15)
+                            .size(0.5)
+                            .color(color)
+                            .draw();
+                        if let Some(role_text) = role {
+                            ui.text(role_text.as_str())
+                                .pos(r.right() + 0.02, name_r.bottom() + 0.005)
+                                .size(0.35)
+                                .color(semi_white(0.6))
+                                .draw();
+                        }
+                    }
+                    dy!(0.14);
+                }
+            }
+
             let mut item = |title: Cow<'_, str>, content: Cow<'_, str>| {
                 dy!(ui.text(title).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
                 dy!(ui.text(content).pos(pad, 0.).size(0.6).multiline().max_width(mw).draw().h + 0.03);
@@ -1346,6 +1435,61 @@ impl SongScene {
         }));
     }
 
+    fn try_save_with_autocomplete(&mut self) {
+        let intro = &self.info_edit.as_ref().unwrap().info.intro;
+        let unresolved = find_unresolved_mentions(intro);
+        if unresolved.is_empty() {
+            self.save_edit();
+        } else {
+            let mentions_list = unresolved
+                .iter()
+                .map(|(start, end, _)| &intro[*start..*end])
+                .collect::<Vec<_>>()
+                .join(", ");
+            let content = tl!("collab-autocomplete-content", "mentions" => mentions_list);
+            Dialog::plain(tl!("collab-autocomplete-title"), content)
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .listener(|_dialog, pos| {
+                    if pos == 1 {
+                        CONFIRM_AUTOCOMPLETE.store(true, Ordering::SeqCst);
+                    } else if pos == 0 {
+                        SKIP_AUTOCOMPLETE.store(true, Ordering::SeqCst);
+                    }
+                    false
+                })
+                .show();
+        }
+    }
+
+    fn start_autocomplete(&mut self) {
+        let intro = self.info_edit.as_ref().unwrap().info.intro.clone();
+        self.autocomplete_task = Some(Task::new(async move {
+            let unresolved = find_unresolved_mentions(&intro);
+            // Resolve each mention (bail on first failure), then apply right-to-left
+            // so earlier byte offsets stay valid.
+            let mut resolved: Vec<(usize, usize, String)> = Vec::new();
+            for (start, end, name) in unresolved {
+                let name_owned = name.clone();
+                let (users, _) = Client::query::<User>().search(name_owned).send().await?;
+                let matched = users.into_iter().find(|u| u.name == name);
+                let Some(user) = matched else {
+                    bail!(tl!("collab-autocomplete-failed", "name" => name));
+                };
+                // Replacement: insert `#id` right after `@name`, keep the rest of
+                // the original match (bracket/role if any).
+                let suffix = &intro[start + 1 + name.len()..end];
+                let new_text = format!("@{}#{}{}", name, user.id, suffix);
+                resolved.push((start, end, new_text));
+            }
+            // Apply right-to-left so replacement lengths don't shift pending offsets.
+            let mut result = intro.into_bytes();
+            for (start, end, new_text) in resolved.into_iter().rev() {
+                result.splice(start..end, new_text.into_bytes());
+            }
+            Ok(String::from_utf8(result).unwrap())
+        }));
+    }
+
     fn update_chart_info(&self) -> Result<()> {
         Self::global_update_chart_info(self.local_path.as_ref().unwrap(), self.info.clone())
     }
@@ -1371,14 +1515,21 @@ impl SongScene {
         Ok(())
     }
 
-    fn to_chart_ref(&self) -> ChartRef {
+    fn to_bare_chart_ref(&self) -> ChartRef {
         ChartRef::new_bare(self.info.id, self.local_path.as_deref())
     }
 
     fn toggle_in(&mut self, uuid: Uuid) {
         let data = get_data();
         let col = data.collection_info(&uuid).as_ref().clone();
-        let chart_ref = self.to_chart_ref();
+        let mut chart_ref = self.to_bare_chart_ref();
+        if self.info.id.is_some() {
+            let Some(entity) = self.entity.clone() else {
+                show_message(tl!("still-loading")).error();
+                return;
+            };
+            chart_ref.info = Some(Box::new(ChartRefChartInfo::from_chart(&entity)));
+        }
         let add = col.charts.iter().all(|it| it != &chart_ref);
         match col.update(uuid, &[chart_ref], add) {
             CollectionUpdate::Unchanged => {}
@@ -1402,7 +1553,7 @@ impl SongScene {
         let data = get_data();
         let mut options = Vec::new();
         self.fav_menu_options.clear();
-        let chart_ref = self.to_chart_ref();
+        let chart_ref = self.to_bare_chart_ref();
         for uuid in data.collection_uuids() {
             let col = data.collection_info(uuid);
             if !col.is_owned() {
@@ -1516,6 +1667,7 @@ impl Scene for SongScene {
             || self.update_cksum_task.is_some()
             || self.toggle_fav_task.is_some()
             || self.export_task.is_some()
+            || self.autocomplete_task.is_some()
         {
             return Ok(true);
         }
@@ -1684,6 +1836,10 @@ impl Scene for SongScene {
             if let Some(uploader) = &self.info.uploader {
                 UserManager::request(uploader.id);
             }
+            self.collaborators = parse_collaborators(&self.info.intro);
+            for id in self.collaborators.keys() {
+                UserManager::request(*id);
+            }
             self.side_content = SideContent::Info;
             self.side_enter_time = tm.real_time() as _;
             return Ok(true);
@@ -1696,6 +1852,12 @@ impl Scene for SongScene {
         let t = tm.now() as f32;
         self.menu.update(t);
         self.fav_menu.update(t);
+        if self.fav_btn.update_long_touch(t, &mut self.fav_long_touch) {
+            button_hit();
+            let options = self.get_fav_menu_options();
+            self.fav_menu.set_options(options);
+            self.need_show_fav_menu = true;
+        }
         self.illu.settle(t);
         let rt = tm.real_time() as f32;
         self.tags.update(rt);
@@ -1739,6 +1901,30 @@ impl Scene for SongScene {
         }
         if self.side_enter_time < 0. && -tm.real_time() as f32 + edit_transit().unwrap_or_default() < self.side_enter_time {
             self.side_enter_time = f32::INFINITY;
+        }
+        if CONFIRM_AUTOCOMPLETE.fetch_and(false, Ordering::SeqCst) {
+            self.start_autocomplete();
+        }
+        if SKIP_AUTOCOMPLETE.fetch_and(false, Ordering::SeqCst) {
+            self.save_edit();
+        }
+        if let Some(task) = &mut self.autocomplete_task {
+            if let Some(res) = task.take() {
+                self.autocomplete_task = None;
+                match res {
+                    Err(err) => {
+                        show_error(err);
+                    }
+                    Ok(new_intro) => {
+                        if let Some(edit) = self.info_edit.as_mut() {
+                            edit.info.intro = new_intro;
+                            edit.updated = true;
+                        }
+                        show_message(tl!("collab-autocomplete-done")).duration(1.).ok();
+                        self.save_edit();
+                    }
+                }
+            }
         }
         if let Some(task) = &mut self.load_task {
             if let Some(res) = task.take() {
@@ -2551,7 +2737,7 @@ impl Scene for SongScene {
                     let is_fav = if let Some(fav) = self.is_fav {
                         fav
                     } else {
-                        let chart_ref = self.to_chart_ref();
+                        let chart_ref = self.to_bare_chart_ref();
                         let fav = get_data().collections().any(|col| col.charts.iter().any(|it| it == &chart_ref));
                         self.is_fav = Some(fav);
                         fav
@@ -2636,6 +2822,7 @@ impl Scene for SongScene {
             || self.overwrite_task.is_some()
             || self.update_cksum_task.is_some()
             || self.toggle_fav_task.is_some()
+            || self.autocomplete_task.is_some()
         {
             ui.full_loading("", t);
         }

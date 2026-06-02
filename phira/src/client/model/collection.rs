@@ -1,11 +1,13 @@
 use std::{
     borrow::Cow,
     collections::HashSet,
+    fmt::Debug,
     hash::{Hash, Hasher},
 };
 
 use crate::{
     client::{recv_raw, Client, File},
+    data::BriefChartInfo,
     dir, get_data,
     page::{local_illustration, Illustration},
 };
@@ -40,10 +42,32 @@ impl Object for Collection {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ChartRefChartInfo {
+    #[serde(flatten)]
+    pub info: BriefChartInfo,
+    pub illustration: File,
+}
+
+impl ChartRefChartInfo {
+    pub fn from_chart(chart: &Chart) -> Self {
+        Self {
+            info: BriefChartInfo::from_chart(chart),
+            illustration: chart.illustration.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
 pub struct ChartRef {
     pub path: String,
-    pub info: Option<Box<Chart>>,
+    pub info: Option<Box<ChartRefChartInfo>>,
+}
+
+impl Debug for ChartRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ChartRef").field("path", &self.path).finish()
+    }
 }
 
 impl<'de> Deserialize<'de> for ChartRef {
@@ -54,9 +78,9 @@ impl<'de> Deserialize<'de> for ChartRef {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum FuseChartRef {
-            New { path: String, info: Option<Box<Chart>> },
+            New { path: String, info: Option<Box<ChartRefChartInfo>> },
             Local(String),
-            Online(i32, Option<Box<Chart>>),
+            Online(i32, Option<Box<ChartRefChartInfo>>),
         }
 
         let fuse = FuseChartRef::deserialize(deserializer)?;
@@ -120,7 +144,7 @@ impl From<Chart> for ChartRef {
     fn from(chart: Chart) -> Self {
         ChartRef {
             path: format!("download/{}", chart.id),
-            info: Some(Box::new(chart)),
+            info: Some(Box::new(ChartRefChartInfo::from_chart(&chart))),
         }
     }
 }
@@ -217,7 +241,7 @@ impl LocalCollection {
                 Some(file) => CollectionCover::Online(file.clone()),
             },
             name: col.name.clone(),
-            description: self.description.clone(),
+            description: col.description.clone(),
             remote_updated: Some(col.updated),
             charts: col.charts.iter().cloned().map(Into::into).collect(),
             public: col.public,

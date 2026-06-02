@@ -46,6 +46,7 @@ item-audio-buffer-size = Audio Buffer Size
 
 item-show-acc = Real-Time Accuracy
 item-show-avg-fps = Show AVG FPS
+item-show-avg-fps-sub = Display the average FPS on the results screen.
 item-ap-fc-indicator = AP/FC Indicator
 item-ap-fc-indicator-sub = Use line color to indicate AP/FC status.
 item-dc-pause = Double-Tap to Pause
@@ -104,4 +105,3 @@ about-content =
   { $localization }
 
   And many more voluntary chart reviewers. For a full list please refer to https://phira.moe/staff .
-

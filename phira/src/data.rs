@@ -1,5 +1,5 @@
 use crate::{
-    client::{Character, LocalCollection, Ptr, User},
+    client::{Character, Chart, LocalCollection, Ptr, User},
     dir,
 };
 use anyhow::{Context, Result};
@@ -41,6 +41,26 @@ pub struct BriefChartInfo {
     pub chart_updated: Option<DateTime<Utc>>,
     #[serde(default)]
     pub has_unlock: bool,
+}
+
+impl BriefChartInfo {
+    pub fn from_chart(chart: &Chart) -> Self {
+        Self {
+            id: Some(chart.id),
+            uploader: Some(chart.uploader.clone()),
+            name: chart.name.clone(),
+            level: chart.level.clone(),
+            difficulty: chart.difficulty,
+            intro: chart.description.clone().unwrap_or_default(),
+            charter: chart.charter.clone(),
+            composer: chart.composer.clone(),
+            illustrator: chart.illustrator.clone(),
+            created: Some(chart.created),
+            updated: Some(chart.updated),
+            chart_updated: Some(chart.chart_updated),
+            has_unlock: false,
+        }
+    }
 }
 
 impl From<ChartInfo> for BriefChartInfo {
@@ -262,7 +282,7 @@ impl Data {
             }
             self.respacks.push(filename);
         }
-        self.respack_id = self.respack_id.min(self.respacks.len().saturating_sub(1));
+        self.respack_id = self.respack_id.min(self.respacks.len());
         if let Some(res_pack_path) = &mut self.config.res_pack_path {
             if res_pack_path.starts_with('/') {
                 // for compatibility

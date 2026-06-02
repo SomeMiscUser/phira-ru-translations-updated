@@ -76,9 +76,15 @@ info-composer = 曲师
 info-charter = 谱师
 info-difficulty = 难度
 info-desc = 简介
+info-collaborators = 协作者
 info-rating = 评分
 info-type = 种类
 info-tags = 标签
+
+collab-autocomplete-title = 协作者补全
+collab-autocomplete-content = 检测到缺少用户 ID 的协作者：{ $mentions }，是否自动补全？
+collab-autocomplete-failed = 无法解析 "@{ $name }"：用户不存在或有多个匹配。
+collab-autocomplete-done = 协作者已补全
 
 reviewed = 已审核
 unreviewed = 未审核

@@ -3,7 +3,7 @@
 use colored::Colorize;
 use miniquad::{debug, error, info, trace, warn};
 use tracing::{field::Visit, Level, Subscriber};
-use tracing_subscriber::{filter, prelude::*, Layer};
+use tracing_subscriber::{prelude::*, EnvFilter, Layer};
 
 struct CustomLayer;
 
@@ -91,13 +91,10 @@ where
 }
 
 pub fn register() {
-    tracing_subscriber::registry()
-        .with(CustomLayer)
-        .with(
-            filter::Targets::new()
-                .with_target("hyper", Level::INFO)
-                .with_target("rustls", Level::INFO)
-                .with_default(Level::TRACE),
-        )
-        .init();
+    let filter = if std::env::var("RUST_LOG").is_ok() {
+        EnvFilter::from_default_env()
+    } else {
+        EnvFilter::try_new("hyper=info,rustls=info,debug").unwrap()
+    };
+    tracing_subscriber::registry().with(CustomLayer).with(filter).init();
 }

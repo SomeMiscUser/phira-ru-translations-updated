@@ -46,6 +46,7 @@ item-audio-buffer-size = 音频缓冲区大小
 
 item-show-acc = 显示实时准度
 item-show-avg-fps = 显示平均帧率
+item-show-avg-fps-sub = 在结算界面显示平均帧率
 item-ap-fc-indicator = AP/FC（全完美/全连）指示器
 item-ap-fc-indicator-sub = 使用判定线颜色显示全 AP/FC 状态
 item-dc-pause = 双击暂停

@@ -904,7 +904,7 @@ impl ChartList {
             render_switch(ui, rr, t, &mut self.ap_fc_indicator_btn, config.ap_fc_indicator);
         }
         item! {
-            render_title(ui, tl!("item-show-avg-fps"), None);
+            render_title(ui, tl!("item-show-avg-fps"), Some(tl!("item-show-avg-fps-sub")));
             render_switch(ui, rr, t, &mut self.show_avg_fps_btn, config.show_avg_fps);
         }
         item! {

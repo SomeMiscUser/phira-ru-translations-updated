@@ -18,11 +18,9 @@ struct L10nCheckErrors {
 
 impl Display for L10nCheckErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (idx, message) in self.messages.iter().enumerate() {
-            if idx > 0 {
-                writeln!(f)?;
-            }
-            write!(f, "{message}")?;
+        writeln!(f, "Localization Errors:")?;
+        for message in &self.messages {
+            writeln!(f, "\t{message}")?;
         }
         Ok(())
     }
@@ -109,26 +107,69 @@ fn read_and_parse_ftl(path: &Path) -> Result<FileReport, String> {
     }
 }
 
-pub fn check_langfile(path: &str) -> Result<(), Box<dyn Error>> {
-    let locales_dir = Path::new(path);
+pub fn check_langfile(root_path: &str) -> Result<(), Box<dyn Error>> {
+    let locales_root = Path::new(root_path);
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
-    let mut locale_files: HashMap<&'static str, HashSet<PathBuf>> = HashMap::new();
-    let mut locale_keys: HashMap<&'static str, BTreeSet<String>> = HashMap::new();
+    let mut locale_files: HashMap<&str, HashSet<PathBuf>> = HashMap::new();
+    let mut locale_keys: HashMap<&str, BTreeSet<String>> = HashMap::new();
     let mut crlf_files: Vec<String> = Vec::new();
 
-    for &lang in LANGS.iter() {
-        let locale_dir = locales_dir.join(lang);
-        if !locale_dir.is_dir() {
-            errors.push(format!("missing locale directory: {lang} ({})", locale_dir.display()));
-            continue;
-        }
+    let locale_dirs: HashMap<Box<str>, PathBuf> = match fs::read_dir(locales_root) {
+        Ok(entries) => {
+            let mut dirs: HashMap<Box<str>, PathBuf> = HashMap::with_capacity(LANGS.len());
+            for entry in entries {
+                let entry = match entry {
+                    Ok(entry) => entry,
+                    Err(err) => {
+                        errors.push(format!("failed to read locale dir: {err}"));
+                        continue;
+                    }
+                };
+                let typ = match entry.file_type() {
+                    Ok(typ) => typ,
+                    Err(err) => {
+                        errors.push(format!("failed to inspect type of locale dir: {} ({err})", entry.path().display()));
+                        continue;
+                    }
+                };
+                if !typ.is_dir() {
+                    continue;
+                }
+                if let Some(name) = entry.file_name().to_str() {
+                    dirs.insert(name.into(), entry.path());
+                } else {
+                    errors.push(format!("invalid path: {}", entry.path().display()));
+                    continue;
+                }
+            }
 
+            let dir_names: HashSet<&str> = dirs.keys().map(Box::as_ref).collect();
+            let langs_set: HashSet<&str> = LANGS.into();
+
+            let extra_dirs = dir_names.difference(&langs_set).collect::<Vec<_>>();
+            if !extra_dirs.is_empty() {
+                errors.push(format!("in locales root but not in LANGS: {extra_dirs:?}"));
+            }
+            let missing_dirs = langs_set.difference(&dir_names).collect::<Vec<_>>();
+            if !missing_dirs.is_empty() {
+                errors.push(format!("in LANGS but not in locales root: {missing_dirs:?}"));
+            }
+
+            dirs
+        }
+        Err(err) => {
+            errors.push(format!("failed to read locales root: {locales_root:?} ({err})"));
+            return Err(Box::new(L10nCheckErrors { messages: errors }));
+        }
+    };
+
+    for (lang, locale_dir) in &locale_dirs {
         let mut files = HashSet::new();
         let mut keys = BTreeSet::new();
 
-        let ftl_files = match collect_ftl_files(&locale_dir) {
+        let ftl_files = match collect_ftl_files(locale_dir) {
             Ok(files) => files,
             Err(err) => {
                 errors.push(format!("{}: failed to list .ftl files ({err})", locale_dir.display()));
@@ -137,14 +178,14 @@ pub fn check_langfile(path: &str) -> Result<(), Box<dyn Error>> {
         };
 
         for file_path in ftl_files {
-            let rel = file_path.strip_prefix(&locale_dir).unwrap_or(&file_path).to_path_buf();
+            let rel = file_path.strip_prefix(locale_dir).unwrap_or(&file_path).to_path_buf();
             files.insert(rel);
 
             match read_and_parse_ftl(&file_path) {
                 Ok(report) => {
                     keys.extend(report.keys);
                     if report.has_crlf {
-                        let rel_to_locales = file_path.strip_prefix(locales_dir).unwrap_or(&file_path);
+                        let rel_to_locales = file_path.strip_prefix(locales_root).unwrap_or(&file_path);
                         crlf_files.push(rel_to_locales.display().to_string());
                     }
                 }
@@ -166,11 +207,11 @@ pub fn check_langfile(path: &str) -> Result<(), Box<dyn Error>> {
     };
 
     if let Some(base_files) = base_files {
-        for &lang in LANGS.iter() {
-            if lang == base_lang {
+        for lang in locale_dirs.keys() {
+            if lang.as_ref() == base_lang {
                 continue;
             }
-            if let Some(lang_files) = locale_files.get(lang) {
+            if let Some(lang_files) = locale_files.get(lang.as_ref()) {
                 let mut missing: Vec<String> = base_files.difference(lang_files).map(|path| path.display().to_string()).collect();
                 missing.sort();
                 if !missing.is_empty() {
@@ -181,11 +222,11 @@ pub fn check_langfile(path: &str) -> Result<(), Box<dyn Error>> {
     }
 
     if let Some(base_keys) = locale_keys.get(base_lang) {
-        for &lang in LANGS.iter() {
-            if lang == base_lang {
+        for lang in locale_dirs.keys() {
+            if lang.as_ref() == base_lang {
                 continue;
             }
-            if let Some(lang_keys) = locale_keys.get(lang) {
+            if let Some(lang_keys) = locale_keys.get(lang.as_ref()) {
                 let mut missing: Vec<String> = base_keys.difference(lang_keys).cloned().collect();
                 if !missing.is_empty() {
                     missing.sort();
