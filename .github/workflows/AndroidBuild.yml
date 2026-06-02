@@ -56,6 +56,7 @@ jobs:
         cd phira
         cargo install cargo-ndk
         cargo ndk -t arm64-v8a --platform 35 build --release
+        rustup target install aarch64-linux-android
     
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
